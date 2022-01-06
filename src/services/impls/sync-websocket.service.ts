@@ -34,9 +34,12 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             console.log(JSON.stringify(response));
             if (Object.keys(response.result).length) {
                 console.log("Saving to database")
+                let data = response.result.data;
+                var encoded = Buffer.from(JSON.stringify(data), 'base64');
+                console.log("encoded:", encoded);
                 let auraTx = {
-                    code: 0,
-                    codeSpace: "",
+                    code: response.result.data.value.TxResult.result.code ? response.result.data.value.TxResult.result.code : 0,
+                    codeSpace: response.result.data.value.TxResult.result.codespace ? response.result.data.value.TxResult.result.codespace : "",
                     data: "",
                     gasUsed: response.result.data.value.TxResult.result.gas_used,
                     gasWanted: response.result.data.value.TxResult.result.gas_wanted,
