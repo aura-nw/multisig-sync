@@ -4,7 +4,7 @@ import { SyncWebsocketService } from './services/impls/sync-websocket.service';
 import { SharedModule } from './shared/shared.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigService } from './shared/services/config.service';
-import { AuraTxRepository } from './repositories/impls/aura-tx.repository';
+import { AuraTransactionRepository } from './repositories/impls/aura-tx.repository';
 const entities = [
     ENTITIES_CONFIG.AURA_TX
 ];
@@ -27,7 +27,7 @@ const entities = [
         },
         {
             provide: REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY,
-            useClass: AuraTxRepository
+            useClass: AuraTransactionRepository
         }
     ],
 })

@@ -3,13 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { BaseRepository } from './base.repository';
 import { ObjectLiteral, Repository } from 'typeorm';
 import { ENTITIES_CONFIG } from 'src/module.config';
-import { IAuraTxRepository } from '../iaura-tx.repository';
+import { IAuraTransactionRepository } from '../iaura-tx.repository';
 
 @Injectable()
-export class AuraTxRepository
+export class AuraTransactionRepository
     extends BaseRepository
-    implements IAuraTxRepository {
-    private readonly _logger = new Logger(AuraTxRepository.name);
+    implements IAuraTransactionRepository {
+    // private readonly _logger = new Logger(AuraTx1Repository.name);
     constructor(
         @InjectRepository(ENTITIES_CONFIG.AURA_TX)
         private readonly repos: Repository<ObjectLiteral>,

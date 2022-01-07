@@ -1,3 +1,3 @@
 import { IBaseRepository } from './ibase.repository';
 
-export interface IAuraTxRepository extends IBaseRepository {}
+export interface IAuraTransactionRepository extends IBaseRepository {}

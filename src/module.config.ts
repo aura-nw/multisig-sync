@@ -9,7 +9,7 @@ export const SERVICE_INTERFACE = {
 }
 
 export const REPOSITORY_INTERFACE = {
-    IAURA_TX_REPOSITORY: "IAuraTxRepository",
+    IAURA_TX_REPOSITORY: "IAuraTransactionRepository",
 }
 
 export const PROVIDER_INTERFACE = {

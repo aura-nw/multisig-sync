@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { AuraTx } from "src/entities/aura-tx.entity";
 import { REPOSITORY_INTERFACE } from "src/module.config";
-import { IAuraTxRepository } from "src/repositories/iaura-tx.repository";
-import { AuraTxRepository } from "src/repositories/impls/aura-tx.repository";
+import { IAuraTransactionRepository } from "src/repositories/iaura-tx.repository";
+import { AuraTransactionRepository } from "src/repositories/impls/aura-tx.repository";
 import { ConfigService } from "src/shared/services/config.service";
 import * as WebSocket from "ws";
 // import { ResponseDto } from "src/dtos/responses/response.dto";
@@ -19,7 +19,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     private _websocket: WebSocket;
     constructor(
         private configService: ConfigService,
-        // @Inject(REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY) private auraTxRepository: IAuraTxRepository,
+        @Inject(REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY) private auraTxRepository: IAuraTransactionRepository,
     ) {
         this._logger.log("============== Constructor Sync Websocket Service ==============");
         this._websocketUrl = this.configService.get('WEBSOCKET_URL');
@@ -68,6 +68,8 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 txHash: response.result.events['tx.hash'][0],
             };
             console.log(auraTx);
+            let result = await this.auraTxRepository.findAll();
+            console.log(result);
         }
     }
 
