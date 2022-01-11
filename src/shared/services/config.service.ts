@@ -1,7 +1,6 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import * as dotenv from 'dotenv';
 import { DATABASE_TYPE } from 'src/common/constants/app.constant';
-
 import { PascalCaseStrategy } from '../pascalCase.strategy';
 
 export class ConfigService {
@@ -52,7 +51,7 @@ export class ConfigService {
 
         return {
             entities,
-            migrations,
+            // migrations,
             type: DATABASE_TYPE.MYSQL,
             host: this.get('DB_HOST'),
             port: this.getNumber('DB_PORT'),

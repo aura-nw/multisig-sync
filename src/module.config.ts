@@ -1,7 +1,11 @@
 import { AuraTx } from "./entities/aura-tx.entity"
+import { Chain } from "./entities/chain.entity"
+import { Safe } from "./entities/safe.entity"
 
 export const ENTITIES_CONFIG = {
-    AURA_TX: AuraTx
+    AURA_TX: AuraTx,
+    SAFE: Safe,
+    CHAIN: Chain
 }
 
 export const SERVICE_INTERFACE = {
@@ -9,7 +13,9 @@ export const SERVICE_INTERFACE = {
 }
 
 export const REPOSITORY_INTERFACE = {
-    IAURA_TX_REPOSITORY: "IAuraTransactionRepository",
+    IAURA_TX_REPOSITORY: "IAuraTxRepository",
+    ISAFE_REPOSITORY: "ISafeRepository",
+    ICHAIN_REPOSITORY: "IChainRepository"
 }
 
 export const PROVIDER_INTERFACE = {
