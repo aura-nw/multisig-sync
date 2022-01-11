@@ -1,9 +1,8 @@
 import { Column, Entity, PrimaryColumn, PrimaryGeneratedColumn } from 'typeorm';
+import { BaseEntityAutoId } from './base/base.entity';
 
 @Entity({ name: 'AuraTx' })
-export class AuraTx {
-    @PrimaryGeneratedColumn('increment', { name: 'Id' })
-    id: string;
+export class AuraTx extends BaseEntityAutoId {
 
     @Column({ name: 'Code' })
     code: string;
@@ -40,4 +39,7 @@ export class AuraTx {
 
     @Column({ name: 'TxHash' })
     txHash: string;
+
+    @Column({ name: 'ChainId' })
+    chainId: string;
 }
