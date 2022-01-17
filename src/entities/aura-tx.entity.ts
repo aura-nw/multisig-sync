@@ -42,4 +42,16 @@ export class AuraTx extends BaseEntityAutoId {
 
     @Column({ name: 'ChainId' })
     chainId: string;
+
+    @Column({ name: 'FromAddress' })
+    fromAddress: string;
+
+    @Column({ name: 'ToAddress' })
+    toAddress: string;
+
+    @Column({ name: 'Amount' })
+    amount: number;
+
+    @Column({ name: 'Denom' })
+    denom: string;
 }
