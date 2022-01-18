@@ -30,8 +30,8 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     }
     async startSyncWebsocket() {
         this.listChain = await this.chainRepository.findAll();
-        console.log(this.listChain);
-        console.log(await this.listChain.find(x => x.websocket == 'ws://18.138.28.51:26657/websocket'))
+        // console.log(this.listChain);
+        // console.log(await this.listChain.find(x => x.websocket == 'ws://18.138.28.51:26657/websocket'))
         // let listSafe = await this.safeRepository.findAll();
         for (let network of this.listChain) {
             this.syncFromNetwork(network);
@@ -39,7 +39,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     }
     async syncFromNetwork(network) {
         this._logger.log("syncFromNetwork");
-        this._logger.debug(JSON.stringify(network));
+        // this._logger.debug(JSON.stringify(network));
         // let queryAllTransaction = { "jsonrpc": "2.0", "method": "subscribe", "id": "0", "params": { "query": "tm.event='Tx'" } };
         let websocketUrl = network.websocket;
         let self = this;
@@ -80,9 +80,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 denom: '',
                 amount: 0,
             }
-            if (typeof (log) == 'string') {
-
-            } else if (typeof (JSON.parse(log)) == 'object') {
+            try {
                 log = JSON.parse(log)[0].events
                 let attributes = log.find(x => x.type == 'transfer').attributes
                 message = {
@@ -91,9 +89,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                     denom: attributes.find(x => x.key == 'amount').value.match(/[a-zA-Z]+/g)[0],
                     amount: attributes.find(x => x.key == 'amount').value.match(/\d+/g)[0],
                 }
+            } catch (error) {
+                this._logger.error("this is error transaction");
             }
-
-            this._logger.debug(message);
 
             let listAddress = [...sender, ...receiver]
             if (listAddress.length > 0) {
@@ -102,7 +100,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             }
 
             let chainId = this.listChain.find(x => x.websocket == source).id;
-            console.log("chainId", chainId)
+            // console.log("chainId", chainId)
             let auraTx = {
                 code: response.result.data.value.TxResult.result.code ?? 0,
                 codeSpace: response.result.data.value.TxResult.result.codespace ?? "",
@@ -115,16 +113,16 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 rawLogs: response.result.data.value.TxResult.result.log,
                 tx: "",
                 txHash: response.result.events['tx.hash'][0],
-                timeStamp: new Date(),
+                timeStamp: null,
                 chainId: chainId,
                 fromAddress: message.sender,
                 toAddress: message.recipient,
                 amount: message.amount,
                 denom: message.denom,
             };
-            let result = await this.auraTxRepository.findAll();
+            // let result = await this.auraTxRepository.findAll();
 
-            // await this.auraTxRepository.create(auraTx);
+            await this.auraTxRepository.create(auraTx);
         }
     }
 
