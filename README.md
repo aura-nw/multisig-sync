@@ -1,6 +1,8 @@
 # Multisig-sync
 Multisignature transaction sync to offchain
 
+## Design architecture
+Click [here](docs/README.md) to see the design architecture.
 ## Installation
 
 ```bash
