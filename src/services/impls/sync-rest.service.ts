@@ -28,22 +28,27 @@ export class SyncRestService implements ISyncRestService {
 
     async initSyncRest() {
         let listSafe = await this.safeRepository.findAll();
-        this.listSafeAddress = listSafe.map(x => x.safeAddress);
         this.listChain = await this.chainRepository.findAll();
-        // for (let index = 0; index < listChain.length; index++) {
-        //     const res = await firstValueFrom(this.httpService.get(`${listChain[index].rest}/blocks/latest`))
-        //     listChain[index].height = res.data.block.header.height;
-        // }
-        // this.listChain = listChain;
-        // console.log(listChain);
+        
+        //add address for each chain
+        listSafe.forEach(safe => {
+            let chainId = safe.chainId;
+            let chain = this.listChain.find(x => x.id == chainId);
+            if(chain) {
+                if(chain['safeAddresses']) 
+                    chain['safeAddresses'].push(safe.safeAddress);
+                else chain['safeAddresses'] = [safe.safeAddress];
+            }
+        })
+        
         for (let network of this.listChain) {
-            this.syncFromNetwork(network);
+            this.syncFromNetwork(network, network.safeAddresses);
         }
     }
 
-    async getLatestBlockHeight() {
+    async getLatestBlockHeight(listAddress) {
         let lastHeight = 0;
-        for(let address of this.listSafeAddress) {
+        for(let address of listAddress) {
             if(!address) continue;
             const blockHeight = await this.auraTxRepository.getLatestBlockHeight(address);
             if(blockHeight > lastHeight) lastHeight = blockHeight;
@@ -51,20 +56,20 @@ export class SyncRestService implements ISyncRestService {
         return lastHeight;
     }
 
-    async syncFromNetwork(network) {
+    async syncFromNetwork(network, listAddress) {
         const client = await StargateClient.connect(network.rpc);
         console.log(await client.getBlock());
         let height = (await client.getBlock()).header.height;
-        const lastHeight = await this.getLatestBlockHeight();
+        const lastHeight = await this.getLatestBlockHeight(listAddress);
         let chainId = network.chainId;
         let lostTransations = [];
-        for(let address of this.listSafeAddress) {
+        for(let address of listAddress) {
             if(!address) continue;
             const query: SearchTxQuery = {
-                sentFromOrTo: 'aura15f6wn3nymdnhnh5ddlqletuptjag09tryrtpq5'
+                sentFromOrTo: address
             };
             const filter: SearchTxFilter = {
-                minHeight: 79000,
+                minHeight: lastHeight,
                 maxHeight: height
             }
             const res = await client.searchTx(query, filter);
