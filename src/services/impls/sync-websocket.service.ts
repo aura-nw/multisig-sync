@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { ErrorMap } from "src/common/error.map";
+import { ResponseDto } from "src/dtos/responses/response.dto";
 // import { AuraTx } from "src/entities/aura-tx.entity";
-import { REPOSITORY_INTERFACE } from "src/module.config";
+import { MODULE_REQUEST, REPOSITORY_INTERFACE } from "src/module.config";
 import { IAuraTransactionRepository } from "src/repositories/iaura-tx.repository";
 import { IChainRepository } from "src/repositories/ichain.repository";
 import { AuraTxRepository } from "src/repositories/impls/aura-tx.repository";
@@ -27,6 +29,37 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         this.startSyncWebsocket();
 
     }
+
+    async addNewAddressOnNetwork(request: MODULE_REQUEST.SubcribeNewAddressRequest): Promise<ResponseDto> {
+        let chain = await this.chainRepository.findOne(request.chainId);
+        const res = new ResponseDto();
+        try {
+            let self = this;
+            let websocketUrl = chain.websocket;
+            let websocket = new WebSocket(websocketUrl);
+            websocket.on('open', function () {
+                let queryTransactionFromAddress = { "jsonrpc": "2.0", "method": "subscribe", "id": "0", "params": { "query": `tm.event='Tx' AND transfer.sender = '${request.address}'` } };
+                let queryTransactionToAddress = { "jsonrpc": "2.0", "method": "subscribe", "id": "0", "params": { "query": `tm.event='Tx' AND transfer.recipient = '${request.address}'` } };
+
+                this.send(JSON.stringify(queryTransactionFromAddress));
+                this.send(JSON.stringify(queryTransactionToAddress));
+            })
+            websocket.on('message', function (message) {
+                self.handleMessage(websocketUrl, message);
+            });
+            websocket.on('error', (error) => {
+                self._logger.error(error)
+            })
+
+        } catch (error) {
+            this._logger.error(`${ErrorMap.E500.Code}: ${ErrorMap.E500.Message}`);
+            this._logger.error(`${error.name}: ${error.message}`);
+            this._logger.error(`${error.stack}`);
+            return res.return(ErrorMap.E500);
+        }
+    }
+
+
     async startSyncWebsocket() {
         this.listChain = await this.chainRepository.findAll();
         let listSafe = await this.safeRepository.findAll();
@@ -80,7 +113,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                     this._logger.error(error);
                 }
             });
-        }else{
+        } else {
             this._logger.log('There is no address to connect websocket');
         }
     }
