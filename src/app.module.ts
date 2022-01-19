@@ -10,11 +10,15 @@ import { ChainRepository } from './repositories/impls/chain.repository';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SyncRestService } from './services/impls/sync-rest.service';
 import { HttpModule } from '@nestjs/axios';
+import { AppController } from './controllers/websocket.controller';
 const entities = [
     ENTITIES_CONFIG.AURA_TX,
     ENTITIES_CONFIG.SAFE,
     ENTITIES_CONFIG.CHAIN
 ];
+const controllers = [
+    AppController
+]
 // @Global()
 @Module({
     imports: [
@@ -28,7 +32,7 @@ const entities = [
         ScheduleModule.forRoot(),
         HttpModule,
     ],
-    controllers: [],
+    controllers: [...controllers],
     providers: [
         {
             provide: SERVICE_INTERFACE.ISYNC_WEBSOCKET_SERVICE,

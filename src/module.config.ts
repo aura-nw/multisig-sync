@@ -1,3 +1,4 @@
+import { SubcribeNewAddressRequest } from "./dtos/requests/websocket/subcribe-new-address.request"
 import { AuraTx } from "./entities/aura-tx.entity"
 import { Chain } from "./entities/chain.entity"
 import { Safe } from "./entities/safe.entity"
@@ -21,4 +22,12 @@ export const REPOSITORY_INTERFACE = {
 
 export const PROVIDER_INTERFACE = {
 
+}
+
+export const REQUEST_CONFIG = {
+    SUBCRIBE_NEW_ADDRESS: SubcribeNewAddressRequest,
+}
+
+export module MODULE_REQUEST {
+    export abstract class SubcribeNewAddressRequest extends REQUEST_CONFIG.SUBCRIBE_NEW_ADDRESS { }
 }
