@@ -20,7 +20,7 @@ export class AuraTx extends BaseEntityAutoId {
     gasWanted: number;
 
     @Column({ name: 'Height' })
-    height: string;
+    height: number;
 
     @Column({ name: 'Info' })
     info: string;
