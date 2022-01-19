@@ -58,9 +58,10 @@ export class SyncRestService implements ISyncRestService {
 
     async syncFromNetwork(network, listAddress) {
         const client = await StargateClient.connect(network.rpc);
-        console.log(await client.getBlock());
         let height = (await client.getBlock()).header.height;
+        this._logger.debug(`height: ${height}`);
         const lastHeight = await this.getLatestBlockHeight(listAddress);
+        this._logger.debug(`lastHeight: ${lastHeight}`);
         let chainId = network.chainId;
         let lostTransations = [];
         for(let address of listAddress) {
@@ -109,7 +110,7 @@ export class SyncRestService implements ISyncRestService {
                 }
                 lostTransations.push(auraTx);
             }
-            await this.auraTxRepository.insertLostTransaction(lostTransations);
+            await this.auraTxRepository.insertBulkTransaction(lostTransations);
         }
     }
     // @Cron(CronExpression.EVERY_SECOND)

@@ -4,6 +4,7 @@ import { BaseRepository } from './base.repository';
 import { ObjectLiteral, Repository } from 'typeorm';
 import { ENTITIES_CONFIG } from 'src/module.config';
 import { IAuraTransactionRepository } from '../iaura-tx.repository';
+import { AuraTx } from 'src/entities/aura-tx.entity';
 
 @Injectable()
 export class AuraTxRepository
@@ -27,11 +28,11 @@ export class AuraTxRepository
         return res;
     }
 
-    async insertLostTransaction(lostTransations: any) {
+    async insertBulkTransaction(listTransations: any[]) {
         let query = `
             INSERT IGNORE INTO AuraTx(CreatedAt, UpdatedAt, Id, Code, Data, GasUsed, GasWanted, Height, Info, Logs, RawLogs, FromAddress, ToAddress, Amount, Denom, TimeStamp, Tx, TxHash, ChainId) 
             VALUES`;
-        for(let auraTx of lostTransations) {
+        for(let auraTx of listTransations) {
             query += `(DEFAULT, DEFAULT, DEFAULT, ${auraTx.code}, '${auraTx.data}', ${auraTx.gasUsed}, ${auraTx.gasWanted}, ${auraTx.height}, '${auraTx.info}', '${auraTx.logs}', '${auraTx.rawLogs}', '${auraTx.fromAddress}', '${auraTx.toAddress}', ${auraTx.amount}, '${auraTx.denom}', ${auraTx.timeStamp}, '${auraTx.tx}', '${auraTx.txHash}', '${auraTx.chainId}'),`;
         }
         // console.log(query);

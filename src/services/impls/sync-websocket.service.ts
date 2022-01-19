@@ -36,6 +36,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         try {
             let self = this;
             let websocketUrl = chain.websocket;
+            console.log(websocketUrl)
             let websocket = new WebSocket(websocketUrl);
             websocket.on('open', function () {
                 let queryTransactionFromAddress = { "jsonrpc": "2.0", "method": "subscribe", "id": "0", "params": { "query": `tm.event='Tx' AND transfer.sender = '${request.address}'` } };
@@ -176,7 +177,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             };
             // let result = await this.auraTxRepository.findAll();
 
-            await this.auraTxRepository.create(auraTx);
+            await this.auraTxRepository.insertBulkTransaction([auraTx]);
         }
     }
 
