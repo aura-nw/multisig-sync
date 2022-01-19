@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { ErrorMap } from "src/common/error.map";
+import { ResponseDto } from "src/dtos/responses/response.dto";
 // import { AuraTx } from "src/entities/aura-tx.entity";
-import { REPOSITORY_INTERFACE } from "src/module.config";
+import { MODULE_REQUEST, REPOSITORY_INTERFACE } from "src/module.config";
 import { IAuraTransactionRepository } from "src/repositories/iaura-tx.repository";
 import { IChainRepository } from "src/repositories/ichain.repository";
 import { AuraTxRepository } from "src/repositories/impls/aura-tx.repository";
@@ -19,7 +21,6 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     private readonly _logger = new Logger(SyncWebsocketService.name);
     private listChain = []Chain;
     constructor(
-        private configService: ConfigService,
         @Inject(REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY) private auraTxRepository: IAuraTransactionRepository,
         @Inject(REPOSITORY_INTERFACE.ISAFE_REPOSITORY) private safeRepository: ISafeRepository,
         @Inject(REPOSITORY_INTERFACE.ICHAIN_REPOSITORY) private chainRepository: IChainRepository,
@@ -28,24 +29,69 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         this.startSyncWebsocket();
 
     }
+
+    async addNewAddressOnNetwork(request: MODULE_REQUEST.SubcribeNewAddressRequest): Promise<ResponseDto> {
+        let chain = await this.chainRepository.findOne(request.chainId);
+        const res = new ResponseDto();
+        try {
+            let self = this;
+            let websocketUrl = chain.websocket;
+            console.log(websocketUrl)
+            let websocket = new WebSocket(websocketUrl);
+            websocket.on('open', function () {
+                let queryTransactionFromAddress = { "jsonrpc": "2.0", "method": "subscribe", "id": "0", "params": { "query": `tm.event='Tx' AND transfer.sender = '${request.address}'` } };
+                let queryTransactionToAddress = { "jsonrpc": "2.0", "method": "subscribe", "id": "0", "params": { "query": `tm.event='Tx' AND transfer.recipient = '${request.address}'` } };
+
+                this.send(JSON.stringify(queryTransactionFromAddress));
+                this.send(JSON.stringify(queryTransactionToAddress));
+            })
+            websocket.on('message', function (message) {
+                self.handleMessage(websocketUrl, message);
+            });
+            websocket.on('error', (error) => {
+                self._logger.error(error)
+            })
+
+        } catch (error) {
+            this._logger.error(`${ErrorMap.E500.Code}: ${ErrorMap.E500.Message}`);
+            this._logger.error(`${error.name}: ${error.message}`);
+            this._logger.error(`${error.stack}`);
+            return res.return(ErrorMap.E500);
+        }
+    }
+
+
     async startSyncWebsocket() {
         this.listChain = await this.chainRepository.findAll();
-        console.log(this.listChain);
-        console.log(await this.listChain.find(x => x.websocket == 'ws://18.138.28.51:26657/websocket'))
-        // let listSafe = await this.safeRepository.findAll();
+        let listSafe = await this.safeRepository.findAll();
+
+        // add address for each chain
+        listSafe.forEach(safe => {
+            let chainId = safe.chainId;
+            let chain = this.listChain.find(x => x.id == chainId);
+            if (chain) {
+                if (chain['safeAddresses']) {
+                    chain['safeAddresses'].push(safe.safeAddress);
+                } else {
+                    chain['safeAddresses'] = [safe.safeAddress];
+                }
+            }
+        });
+
+        // start sync ws for each chain and address
         for (let network of this.listChain) {
             this.syncFromNetwork(network);
         }
     }
     async syncFromNetwork(network) {
         this._logger.log("syncFromNetwork");
-        this._logger.debug(JSON.stringify(network));
-        // let queryAllTransaction = { "jsonrpc": "2.0", "method": "subscribe", "id": "0", "params": { "query": "tm.event='Tx'" } };
+        this._logger.log(JSON.stringify(network));
+        // this._logger.debug(JSON.stringify(network));
         let websocketUrl = network.websocket;
         let self = this;
         let websocket = new WebSocket(websocketUrl);
         websocket.on('open', function () {
-            self.connectWebsocket(this)
+            self.connectWebsocket(this, network.safeAddresses)
         })
         websocket.on('message', function (message) {
             self.handleMessage(network.websocket, message);
@@ -54,13 +100,22 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             self._logger.error(error)
         })
     }
-    async connectWebsocket(websocket) {
+    async connectWebsocket(websocket, listAddress) {
         this._logger.log(`connectWebsocket ${websocket._url}`);
-        let queryAllTransaction = { "jsonrpc": "2.0", "method": "subscribe", "id": "0", "params": { "query": "tm.event='Tx'" } };
-        try {
-            websocket.send(JSON.stringify(queryAllTransaction));
-        } catch (error) {
-            this._logger.error(error);
+        this._logger.log(JSON.stringify(listAddress));
+        if (listAddress) {
+            listAddress.forEach(address => {
+                let queryTransactionFromAddress = { "jsonrpc": "2.0", "method": "subscribe", "id": "0", "params": { "query": `tm.event='Tx' AND transfer.sender = '${address}'` } };
+                let queryTransactionToAddress = { "jsonrpc": "2.0", "method": "subscribe", "id": "0", "params": { "query": `tm.event='Tx' AND transfer.recipient = '${address}'` } };
+                try {
+                    websocket.send(JSON.stringify(queryTransactionFromAddress));
+                    websocket.send(JSON.stringify(queryTransactionToAddress));
+                } catch (error) {
+                    this._logger.error(error);
+                }
+            });
+        } else {
+            this._logger.log('There is no address to connect websocket');
         }
     }
     async handleMessage(source, message) {
@@ -80,9 +135,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 denom: '',
                 amount: 0,
             }
-            if (typeof (log) == 'string') {
-
-            } else if (typeof (JSON.parse(log)) == 'object') {
+            try {
                 log = JSON.parse(log)[0].events
                 let attributes = log.find(x => x.type == 'transfer').attributes
                 message = {
@@ -91,9 +144,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                     denom: attributes.find(x => x.key == 'amount').value.match(/[a-zA-Z]+/g)[0],
                     amount: attributes.find(x => x.key == 'amount').value.match(/\d+/g)[0],
                 }
+            } catch (error) {
+                this._logger.error("this is error transaction");
             }
-
-            this._logger.debug(message);
 
             let listAddress = [...sender, ...receiver]
             if (listAddress.length > 0) {
@@ -102,7 +155,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             }
 
             let chainId = this.listChain.find(x => x.websocket == source).id;
-            console.log("chainId", chainId)
+            // console.log("chainId", chainId)
             let auraTx = {
                 code: response.result.data.value.TxResult.result.code ?? 0,
                 codeSpace: response.result.data.value.TxResult.result.codespace ?? "",
@@ -115,16 +168,16 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 rawLogs: response.result.data.value.TxResult.result.log,
                 tx: "",
                 txHash: response.result.events['tx.hash'][0],
-                timeStamp: new Date(),
+                timeStamp: null,
                 chainId: chainId,
                 fromAddress: message.sender,
                 toAddress: message.recipient,
                 amount: message.amount,
                 denom: message.denom,
             };
-            let result = await this.auraTxRepository.findAll();
+            // let result = await this.auraTxRepository.findAll();
 
-            // await this.auraTxRepository.create(auraTx);
+            await this.auraTxRepository.insertBulkTransaction([auraTx]);
         }
     }
 
