@@ -25,7 +25,10 @@ export class AuraTxRepository
             .orWhere('toAddress = :address', { address })
             .orderBy('height', 'DESC');
         let res = await query.getRawOne();
-        return res.height;
+        if (res){
+            return res.height;
+        }
+        return 0;
     }
 
     async insertBulkTransaction(listTransations: any[]) {
