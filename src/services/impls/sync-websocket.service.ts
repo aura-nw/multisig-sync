@@ -141,7 +141,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         let buffer = Buffer.from(message);
         let response = JSON.parse(buffer.toString())
         // this._logger.debug(response);
-        if (Object.keys(response.result).length) {
+        if (response?.result && Object.keys(response.result).length) {
             // let listAddress = []
             let sender = response.result.events['coin_spent.spender'] ?? []
             let receiver = response.result.events['coin_received.receiver'] ?? []
