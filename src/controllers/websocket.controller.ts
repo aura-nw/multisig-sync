@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Inject, Post, Query } from '@nestjs/common';
+import { Body, Controller, Inject, Post } from '@nestjs/common';
 import { MODULE_REQUEST, SERVICE_INTERFACE } from 'src/module.config';
 import { ISyncWebsocketService } from 'src/services/isync-websocket.service';
-import { ApiBadRequestResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @Controller("websocket")
 @ApiTags("websocket")

@@ -1,13 +1,11 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import { ErrorMap } from "src/common/error.map";
 import { ResponseDto } from "src/dtos/responses/response.dto";
-// import { AuraTx } from "src/entities/aura-tx.entity";
 import { MODULE_REQUEST, REPOSITORY_INTERFACE } from "src/module.config";
 import { IAuraTransactionRepository } from "src/repositories/iaura-tx.repository";
 import { IChainRepository } from "src/repositories/ichain.repository";
-import { AuraTxRepository } from "src/repositories/impls/aura-tx.repository";
 import { ISafeRepository } from "src/repositories/isafe.repository";
-import { ConfigService } from "src/shared/services/config.service";
 import * as WebSocket from "ws";
 // import { ResponseDto } from "src/dtos/responses/response.dto";
 // import { ErrorMap } from "../../common/error.map";
@@ -20,6 +18,7 @@ import { ISyncWebsocketService } from "../isync-websocket.service";
 export class SyncWebsocketService implements ISyncWebsocketService {
     private readonly _logger = new Logger(SyncWebsocketService.name);
     private listChain = []Chain;
+    private listAddress = [];
     constructor(
         @Inject(REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY) private auraTxRepository: IAuraTransactionRepository,
         @Inject(REPOSITORY_INTERFACE.ISAFE_REPOSITORY) private safeRepository: ISafeRepository,
@@ -60,6 +59,24 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         }
     }
 
+    @Cron(CronExpression.EVERY_5_SECONDS)
+    async addNewSafeNeedToSync(){
+        this._logger.debug("addNewSafeNeedToSync");
+        let listNewSafe = (await this.safeRepository.findSafeNotInListAddress(this.listAddress));
+        this._logger.debug(JSON.stringify(listNewSafe));
+        
+        listNewSafe.forEach(safe => {
+            let chainId = safe.chainId;
+            let chain = this.listChain.find(x => x.id == chainId);
+            if(chain && safe.safeAddress){
+                this.listAddress.push(safe.safeAddress);
+                this.syncFromNetwork({
+                    websocket: chain.websocket,
+                    safeAddresses: [safe.safeAddress]
+                })
+            }
+        })
+    }
 
     async startSyncWebsocket() {
         this.listChain = await this.chainRepository.findAll();
@@ -69,7 +86,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         listSafe.forEach(safe => {
             let chainId = safe.chainId;
             let chain = this.listChain.find(x => x.id == chainId);
-            if (chain) {
+
+            if (chain && safe.safeAddress) {
+                this.listAddress.push(safe.safeAddress);
                 if (chain['safeAddresses']) {
                     chain['safeAddresses'].push(safe.safeAddress);
                 } else {

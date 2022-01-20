@@ -19,8 +19,17 @@ export class SafeRepository
 
     async checkExistsSafeAddress(listAddress: string[]){
         let query = this.repos.createQueryBuilder('safe');
-        query = query.where('safeAddress IN (:...listAddress)', { listAddress });
-        let res = await query.getMany();
+        query = query.where('safeAddress IN (:...listAddress)', { listAddress: listAddress });
+        let res = await query.getRawMany();
+        return res;
+    }
+
+    async findSafeNotInListAddress(listAddress: string[]) {
+        let query = this.repos.createQueryBuilder('safe');
+        query = query
+        .select('safe.safeAddress as safeAddress, safe.chainId as chainId')
+        .where('safe.safeAddress NOT IN (:...listAddress)', { listAddress: listAddress });
+        let res = await query.getRawMany();
         return res;
     }
 }
