@@ -4,8 +4,6 @@ import { BaseRepository } from './base.repository';
 import { ObjectLiteral, Repository } from 'typeorm';
 import { ENTITIES_CONFIG } from 'src/module.config';
 import { IAuraTransactionRepository } from '../iaura-tx.repository';
-import { AuraTx } from 'src/entities/aura-tx.entity';
-
 @Injectable()
 export class AuraTxRepository
     extends BaseRepository
@@ -25,7 +23,10 @@ export class AuraTxRepository
             .orWhere('toAddress = :address', { address })
             .orderBy('height', 'DESC');
         let res = await query.getRawOne();
-        return res.height;
+        if (res){
+            return res.height;
+        }
+        return 0;
     }
 
     async insertBulkTransaction(listTransations: any[]) {
