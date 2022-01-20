@@ -34,7 +34,7 @@ export class SyncRestService implements ISyncRestService {
         listSafe.forEach(safe => {
             let chainId = safe.chainId;
             let chain = this.listChain.find(x => x.id == chainId);
-            if(chain) {
+            if(chain && safe.safeAddress) {
                 if(chain['safeAddresses']) 
                     chain['safeAddresses'].push(safe.safeAddress);
                 else chain['safeAddresses'] = [safe.safeAddress];
@@ -63,9 +63,10 @@ export class SyncRestService implements ISyncRestService {
         // Get the last block height from DB
         const lastHeight = await this.getLatestBlockHeight(listAddress);
         let chainId = network.id;
-        let lostTransations = [];
+        
         // Query each address in network to search for lost transactions
         for(let address of listAddress) {
+            let lostTransations = [];
             if(!address) continue;
             const query: SearchTxQuery = {
                 sentFromOrTo: address
@@ -84,6 +85,7 @@ export class SyncRestService implements ISyncRestService {
                     amount: 0,
                 }
                 log = JSON.parse(log)[0].events
+                
                 let attributes = log.find(x => x.type == 'transfer').attributes
                 message = {
                     recipient: attributes.find(x => x.key == 'recipient').value,
@@ -112,7 +114,8 @@ export class SyncRestService implements ISyncRestService {
                 lostTransations.push(auraTx);
             }
             // Bulk insert transactions into DB
-            await this.auraTxRepository.insertBulkTransaction(lostTransations);
+            if (lostTransations.length > 0)
+                await this.auraTxRepository.insertBulkTransaction(lostTransations);   
         }
     }
     // @Cron(CronExpression.EVERY_SECOND)
