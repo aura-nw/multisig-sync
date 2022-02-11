@@ -3,7 +3,6 @@ import { BaseEntityAutoId } from './base/base.entity';
 
 @Entity({ name: 'AuraTx' })
 export class AuraTx extends BaseEntityAutoId {
-
     @Column({ name: 'Code' })
     code: string;
 
