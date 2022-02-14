@@ -6,6 +6,7 @@ import { MODULE_REQUEST, REPOSITORY_INTERFACE } from 'src/module.config';
 import { IAuraTransactionRepository } from 'src/repositories/iaura-tx.repository';
 import { IChainRepository } from 'src/repositories/ichain.repository';
 import { ISafeRepository } from 'src/repositories/isafe.repository';
+import { ConfigService } from 'src/shared/services/config.service';
 import * as WebSocket from 'ws';
 // import { ResponseDto } from "src/dtos/responses/response.dto";
 // import { ErrorMap } from "../../common/error.map";
@@ -18,9 +19,10 @@ import { ISyncWebsocketService } from '../isync-websocket.service';
 export class SyncWebsocketService implements ISyncWebsocketService {
     private readonly _logger = new Logger(SyncWebsocketService.name);
     private listChain = [];
-    Chain;
     private listAddress = [];
+    private listChainIdSubscriber;
     constructor(
+        private configService: ConfigService,
         @Inject(REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY)
         private auraTxRepository: IAuraTransactionRepository,
         @Inject(REPOSITORY_INTERFACE.ISAFE_REPOSITORY)
@@ -30,6 +32,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     ) {
         this._logger.log(
             '============== Constructor Sync Websocket Service ==============',
+        );
+        this.listChainIdSubscriber = JSON.parse(
+            this.configService.get('CHAIN_SUBCRIBE'),
         );
         this.startSyncWebsocket();
     }
@@ -71,6 +76,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             websocket.on('error', (error) => {
                 self._logger.error(error);
             });
+            websocket.on('close', () => {
+                self._logger.log('hello123');
+            });
         } catch (error) {
             this._logger.error(
                 `${ErrorMap.E500.Code}: ${ErrorMap.E500.Message}`,
@@ -81,12 +89,18 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         }
     }
 
-    @Cron(CronExpression.EVERY_5_SECONDS)
+    // @Cron(CronExpression.EVERY_5_SECONDS)
     async addNewSafeNeedToSync() {
         this._logger.debug('addNewSafeNeedToSync');
+        if (this.listAddress.length == 0) {
+            return;
+        }
         let listNewSafe = await this.safeRepository.findSafeNotInListAddress(
             this.listAddress,
         );
+        if (!listNewSafe) {
+            return;
+        }
         this._logger.debug(JSON.stringify(listNewSafe));
 
         listNewSafe.forEach((safe) => {
@@ -103,8 +117,14 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     }
 
     async startSyncWebsocket() {
-        this.listChain = await this.chainRepository.findAll();
-        let listSafe = await this.safeRepository.findAll();
+        this.listChain = await this.chainRepository.findChainByChainId(
+            this.listChainIdSubscriber,
+        );
+        let listInternalChainId = this.listChain.map((x) => x.id);
+
+        let listSafe = await this.safeRepository.findSafeInListInternalChainId(
+            listInternalChainId,
+        );
 
         // add address for each chain
         listSafe.forEach((safe) => {
@@ -146,39 +166,53 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     async connectWebsocket(websocket, listAddress) {
         this._logger.log(`connectWebsocket ${websocket._url}`);
         this._logger.log(JSON.stringify(listAddress));
-        if (listAddress) {
-            listAddress.forEach((address) => {
-                let queryTransactionFromAddress = {
-                    jsonrpc: '2.0',
-                    method: 'subscribe',
-                    id: '0',
-                    params: {
-                        query: `tm.event='Tx' AND transfer.sender = '${address}'`,
-                    },
-                };
-                let queryTransactionToAddress = {
-                    jsonrpc: '2.0',
-                    method: 'subscribe',
-                    id: '0',
-                    params: {
-                        query: `tm.event='Tx' AND transfer.recipient = '${address}'`,
-                    },
-                };
-                try {
-                    websocket.send(JSON.stringify(queryTransactionFromAddress));
-                    websocket.send(JSON.stringify(queryTransactionToAddress));
-                } catch (error) {
-                    this._logger.error(error);
-                }
-            });
-        } else {
-            this._logger.log('There is no address to connect websocket');
+        let queryTransaction = {
+            jsonrpc: '2.0',
+            method: 'subscribe',
+            id: '0',
+            params: {
+                query: `tm.event='Tx'`,
+            },
+        };
+        try {
+            websocket.send(JSON.stringify(queryTransaction));
+        } catch (error) {
+            this._logger.error(error);
         }
+
+        // if (listAddress) {
+        //     listAddress.forEach((address) => {
+        //         let queryTransactionFromAddress = {
+        //             jsonrpc: '2.0',
+        //             method: 'subscribe',
+        //             id: '0',
+        //             params: {
+        //                 query: `tm.event='Tx' AND transfer.sender = '${address}'`,
+        //             },
+        //         };
+        //         let queryTransactionToAddress = {
+        //             jsonrpc: '2.0',
+        //             method: 'subscribe',
+        //             id: '0',
+        //             params: {
+        //                 query: `tm.event='Tx' AND transfer.recipient = '${address}'`,
+        //             },
+        //         };
+        //         try {
+        //             websocket.send(JSON.stringify(queryTransactionFromAddress));
+        //             websocket.send(JSON.stringify(queryTransactionToAddress));
+        //         } catch (error) {
+        //             this._logger.error(error);
+        //         }
+        //     });
+        // } else {
+        //     this._logger.log('There is no address to connect websocket');
+        // }
     }
     async handleMessage(source, message) {
         let buffer = Buffer.from(message);
         let response = JSON.parse(buffer.toString());
-        // this._logger.debug(response);
+        this._logger.debug(response);
         if (response?.result && Object.keys(response.result).length) {
             // let listAddress = []
             let sender = response.result.events['coin_spent.spender'] ?? [];
@@ -213,40 +247,49 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 this._logger.error('this is error transaction');
             }
 
-            let listAddress = [...sender, ...receiver];
-            if (listAddress.length > 0) {
-                let checkExistsSafeAddress =
-                    await this.safeRepository.checkExistsSafeAddress(
-                        listAddress,
-                    );
-            }
-
-            let chainId = this.listChain.find((x) => x.websocket == source).id;
+            // let listAddress = [...sender, ...receiver];
+            // if (listAddress.length > 0) {
+            //     let checkExistsSafeAddress =
+            //         await this.safeRepository.checkExistsSafeAddress(
+            //             listAddress,
+            //         );
+            // }
+            let chain = this.listChain.find((x) => x.websocket == source);
+            let chainId = chain.id;
             // console.log("chainId", chainId)
-            let auraTx = {
-                code: response.result.data.value.TxResult.result.code ?? 0,
-                codeSpace:
-                    response.result.data.value.TxResult.result.codespace ?? '',
-                data: '',
-                gasUsed: response.result.data.value.TxResult.result.gas_used,
-                gasWanted:
-                    response.result.data.value.TxResult.result.gas_wanted,
-                height: response.result.events['tx.height'][0],
-                info: '',
-                logs: '',
-                rawLogs: response.result.data.value.TxResult.result.log,
-                tx: '',
-                txHash: response.result.events['tx.hash'][0],
-                timeStamp: null,
-                chainId: chainId,
-                fromAddress: message.sender,
-                toAddress: message.recipient,
-                amount: message.amount,
-                denom: message.denom,
-            };
-            // let result = await this.auraTxRepository.findAll();
+            if (
+                chain.safeAddresses.includes(message.sender) ||
+                chain.safeAddresses.includes(message.recipient)
+            ) {
+                let auraTx = {
+                    code: response.result.data.value.TxResult.result.code ?? 0,
+                    codeSpace:
+                        response.result.data.value.TxResult.result.codespace ??
+                        '',
+                    data: '',
+                    gasUsed:
+                        response.result.data.value.TxResult.result.gas_used ??
+                        0,
+                    gasWanted:
+                        response.result.data.value.TxResult.result.gas_wanted ??
+                        0,
+                    height: response.result.events['tx.height'][0],
+                    info: '',
+                    logs: '',
+                    rawLogs: response.result.data.value.TxResult.result.log,
+                    tx: '',
+                    txHash: response.result.events['tx.hash'][0],
+                    timeStamp: null,
+                    chainId: chainId,
+                    fromAddress: message.sender,
+                    toAddress: message.recipient,
+                    amount: message.amount,
+                    denom: message.denom,
+                };
+                // let result = await this.auraTxRepository.findAll();
 
-            await this.auraTxRepository.insertBulkTransaction([auraTx]);
+                await this.auraTxRepository.insertBulkTransaction([auraTx]);
+            }
         }
     }
 }

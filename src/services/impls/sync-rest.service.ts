@@ -19,6 +19,7 @@ export class SyncRestService implements ISyncRestService {
     private readonly _logger = new Logger(SyncRestService.name);
     private listChain;
     private listSafeAddress;
+
     constructor(
         private configService: ConfigService,
         private httpService: HttpService,
@@ -32,7 +33,7 @@ export class SyncRestService implements ISyncRestService {
         this._logger.log(
             '============== Constructor Sync Websocket Service ==============',
         );
-        this.initSyncRest();
+        // this.initSyncRest();
     }
 
     async initSyncRest() {
