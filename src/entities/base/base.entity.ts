@@ -1,29 +1,29 @@
 import {
-  CreateDateColumn,
-  PrimaryColumn,
-  UpdateDateColumn,
-  Column,
-  PrimaryGeneratedColumn,
+    CreateDateColumn,
+    PrimaryColumn,
+    UpdateDateColumn,
+    Column,
+    PrimaryGeneratedColumn,
 } from 'typeorm';
 
 export class BaseEntity {
-  @CreateDateColumn({
-    type: 'timestamp',
-    name: 'CreatedAt',
-  })
-  createdAt: Date;
+    @CreateDateColumn({
+        type: 'timestamp',
+        name: 'CreatedAt',
+    })
+    createdAt: Date;
 
-  @UpdateDateColumn({
-    type: 'timestamp',
-    name: 'UpdatedAt',
-  })
-  updatedAt: Date;
+    @UpdateDateColumn({
+        type: 'timestamp',
+        name: 'UpdatedAt',
+    })
+    updatedAt: Date;
 }
 export class BaseEntityId extends BaseEntity {
-  @PrimaryColumn({ name: 'Id' })
-  id: string;
+    @PrimaryColumn({ name: 'Id' })
+    id: string;
 }
 export class BaseEntityAutoId extends BaseEntity {
-  @PrimaryGeneratedColumn('increment', { name: 'Id' })
-  id: number;
+    @PrimaryGeneratedColumn('increment', { name: 'Id' })
+    id: number;
 }
