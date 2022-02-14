@@ -8,12 +8,26 @@ import { IChainRepository } from '../ichain.repository';
 @Injectable()
 export class ChainRepository
     extends BaseRepository
-    implements IChainRepository {
+    implements IChainRepository
+{
     private readonly _logger = new Logger(ChainRepository.name);
     constructor(
         @InjectRepository(ENTITIES_CONFIG.CHAIN)
         private readonly repos: Repository<ObjectLiteral>,
     ) {
         super(repos);
+    }
+
+    async findChainByChainId(listChainId: string[]) {
+        let query = this.repos.createQueryBuilder('chain');
+        query = query
+            .select(
+                'chain.id as id, chain.chainId as chainId, chain.name as chainName, chain.websocket as websocket',
+            )
+            .where('chain.chainId IN (:...listChainId)', {
+                listChainId: listChainId,
+            });
+        let res = await query.getRawMany();
+        return res;
     }
 }
