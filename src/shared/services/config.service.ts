@@ -40,9 +40,7 @@ export class ConfigService {
     }
 
     get ENV_CONFIG() {
-        return {
-
-        }
+        return {};
     }
 
     get typeOrmConfig(): TypeOrmModuleOptions {
@@ -62,10 +60,9 @@ export class ConfigService {
             connectTimeout: 1000,
             logging: this.nodeEnv === 'development',
             namingStrategy: new PascalCaseStrategy(),
-            multipleStatements: true
+            multipleStatements: true,
         };
     }
 }
 
 export const ENV_CONFIG = new ConfigService().ENV_CONFIG;
-
