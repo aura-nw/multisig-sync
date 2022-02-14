@@ -42,7 +42,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         try {
             let self = this;
             let websocketUrl = chain.websocket;
-            console.log(websocketUrl);
+            // console.log(websocketUrl);
             let websocket = new WebSocket(websocketUrl);
             websocket.on('open', function () {
                 let queryTransactionFromAddress = {

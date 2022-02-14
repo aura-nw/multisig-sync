@@ -4,5 +4,4 @@ export interface ISafeRepository extends IBaseRepository {
     checkExistsSafeAddress(listAddress: string[]);
 
     findSafeNotInListAddress(listAddress: string[]);
-    
 }
