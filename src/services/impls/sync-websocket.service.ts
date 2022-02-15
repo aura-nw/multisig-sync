@@ -161,7 +161,26 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         });
         websocket.on('error', (error) => {
             self._logger.error(error);
+            websocket.terminate();
+            // clearTimeout(websocket.pingTimeout);
+            // setTimeout(() => {
+            //     websocket.removeAllListeners();
+            //     websocket = this.syncFromNetwork(network);
+            // }, 5000);
+            process.exit(1);
         });
+        websocket.on('close', () => {
+            self._logger.log('closed');
+            websocket.terminate();
+            // clearTimeout(websocket.pingTimeout);
+            // setTimeout(() => {
+            //     websocket.removeAllListeners();
+            //     websocket = this.syncFromNetwork(network);
+            // }, 5000);
+            process.exit(1);
+        });
+
+        return websocket;
     }
     async connectWebsocket(websocket, listAddress) {
         this._logger.log(`connectWebsocket ${websocket._url}`);
@@ -212,7 +231,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     async handleMessage(source, message) {
         let buffer = Buffer.from(message);
         let response = JSON.parse(buffer.toString());
-        this._logger.debug(response);
+
         if (response?.result && Object.keys(response.result).length) {
             // let listAddress = []
             let sender = response.result.events['coin_spent.spender'] ?? [];
@@ -220,6 +239,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 response.result.events['coin_received.receiver'] ?? [];
             let fee = response.result.events['tx.fee'];
             let log = response.result.data.value.TxResult.result.log;
+            let chain = this.listChain.find((x) => x.websocket == source);
+            let chainId = chain.id;
+
             // [0].events
             let message = {
                 recipient: '',
@@ -254,8 +276,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             //             listAddress,
             //         );
             // }
-            let chain = this.listChain.find((x) => x.websocket == source);
-            let chainId = chain.id;
+
             // console.log("chainId", chainId)
             if (
                 chain.safeAddresses.includes(message.sender) ||
@@ -287,8 +308,11 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                     denom: message.denom,
                 };
                 // let result = await this.auraTxRepository.findAll();
-
+                this._logger.log('insert to db');
+                this._logger.debug(response);
                 await this.auraTxRepository.insertBulkTransaction([auraTx]);
+            } else {
+                this._logger.log('not safe address');
             }
         }
     }
