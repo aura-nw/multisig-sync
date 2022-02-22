@@ -19,7 +19,7 @@ export class SyncRestService implements ISyncRestService {
     private readonly _logger = new Logger(SyncRestService.name);
     private listChain;
     private listSafeAddress;
-
+    private listChainIdSubscriber;
     constructor(
         private configService: ConfigService,
         private httpService: HttpService,
@@ -33,13 +33,17 @@ export class SyncRestService implements ISyncRestService {
         this._logger.log(
             '============== Constructor Sync Websocket Service ==============',
         );
-        // this.initSyncRest();
+        this.listChainIdSubscriber = JSON.parse(
+            this.configService.get('CHAIN_SUBCRIBE'),
+        );
+        this.initSyncRest();
     }
 
     async initSyncRest() {
         let listSafe = await this.safeRepository.findAll();
-        this.listChain = await this.chainRepository.findAll();
-
+        this.listChain = await this.chainRepository.findChainByChainId(
+            this.listChainIdSubscriber,
+        );
         //add address for each chain
         listSafe.forEach((safe) => {
             let chainId = safe.chainId;
