@@ -39,7 +39,7 @@ export class AuraTx extends BaseEntityAutoId {
     @Column({ name: 'TxHash' })
     txHash: string;
 
-    @Column({ name: 'ChainId' })
+    @Column({ name: 'InternalChainId' })
     chainId: string;
 
     @Column({ name: 'FromAddress' })
