@@ -72,6 +72,7 @@ export class SyncRestService implements ISyncRestService {
     }
 
     async syncFromNetwork(network, listAddress) {
+        // console.log('hello123: ', network);
         const client = await StargateClient.connect(network.rpc);
         // Get the current block height received from websocket
         let height = (await client.getBlock()).header.height;

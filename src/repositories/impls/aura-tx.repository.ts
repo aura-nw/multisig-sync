@@ -7,7 +7,8 @@ import { IAuraTransactionRepository } from '../iaura-tx.repository';
 @Injectable()
 export class AuraTxRepository
     extends BaseRepository
-    implements IAuraTransactionRepository {
+    implements IAuraTransactionRepository
+{
     private readonly _logger = new Logger(AuraTxRepository.name);
     constructor(
         @InjectRepository(ENTITIES_CONFIG.AURA_TX)
@@ -17,13 +18,14 @@ export class AuraTxRepository
     }
 
     async getLatestBlockHeight(address: string) {
-        let query = this.repos.createQueryBuilder('auraTx')
+        let query = this.repos
+            .createQueryBuilder('auraTx')
             .select('auraTx.height as height')
             .where('fromAddress = :address', { address })
             .orWhere('toAddress = :address', { address })
             .orderBy('height', 'DESC');
         let res = await query.getRawOne();
-        if (res){
+        if (res) {
             return res.height;
         }
         return 0;
@@ -31,9 +33,9 @@ export class AuraTxRepository
 
     async insertBulkTransaction(listTransations: any[]) {
         let query = `
-            INSERT IGNORE INTO AuraTx(CreatedAt, UpdatedAt, Id, Code, Data, GasUsed, GasWanted, Height, Info, Logs, RawLogs, FromAddress, ToAddress, Amount, Denom, TimeStamp, Tx, TxHash, ChainId) 
+            INSERT IGNORE INTO AuraTx(CreatedAt, UpdatedAt, Id, Code, Data, GasUsed, GasWanted, Height, Info, Logs, RawLogs, FromAddress, ToAddress, Amount, Denom, TimeStamp, Tx, TxHash, InternalChainId) 
             VALUES`;
-        for(let auraTx of listTransations) {
+        for (let auraTx of listTransations) {
             query += `(DEFAULT, DEFAULT, DEFAULT, ${auraTx.code}, '${auraTx.data}', ${auraTx.gasUsed}, ${auraTx.gasWanted}, ${auraTx.height}, '${auraTx.info}', '${auraTx.logs}', '${auraTx.rawLogs}', '${auraTx.fromAddress}', '${auraTx.toAddress}', ${auraTx.amount}, '${auraTx.denom}', ${auraTx.timeStamp}, '${auraTx.tx}', '${auraTx.txHash}', '${auraTx.chainId}'),`;
         }
         // console.log(query);

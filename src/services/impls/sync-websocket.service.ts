@@ -279,6 +279,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
 
             // console.log("chainId", chainId)
             if (
+                // true ||
                 chain.safeAddresses.includes(message.sender) ||
                 chain.safeAddresses.includes(message.recipient)
             ) {
