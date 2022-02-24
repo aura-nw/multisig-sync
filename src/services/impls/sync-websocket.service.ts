@@ -89,7 +89,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         }
     }
 
-    // @Cron(CronExpression.EVERY_5_SECONDS)
+    @Cron(CronExpression.EVERY_5_SECONDS)
     async addNewSafeNeedToSync() {
         this._logger.debug('addNewSafeNeedToSync');
         if (this.listAddress.length == 0) {
