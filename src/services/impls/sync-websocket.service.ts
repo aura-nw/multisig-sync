@@ -89,7 +89,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         }
     }
 
-    @Cron(CronExpression.EVERY_5_SECONDS)
+    // @Cron(CronExpression.EVERY_5_SECONDS)
     async addNewSafeNeedToSync() {
         this._logger.debug('addNewSafeNeedToSync');
         if (this.listAddress.length == 0) {
@@ -280,8 +280,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             // console.log("chainId", chainId)
             if (
                 // true ||
-                chain.safeAddresses.includes(message.sender) ||
-                chain.safeAddresses.includes(message.recipient)
+                // chain.safeAddresses.includes(message.sender) ||
+                // chain.safeAddresses.includes(message.recipient) ||
+                this.safeRepository.checkExistsSafeAddress([message.sender, message.recipient])
             ) {
                 let auraTx = {
                     code: response.result.data.value.TxResult.result.code ?? 0,
