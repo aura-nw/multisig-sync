@@ -282,7 +282,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 // true ||
                 // chain.safeAddresses.includes(message.sender) ||
                 // chain.safeAddresses.includes(message.recipient) ||
-                this.safeRepository.checkExistsSafeAddress([message.sender, message.recipient])
+                this.safeRepository.checkExistsSafeAddress([message.sender, message.recipient]).length !== 0
             ) {
                 let auraTx = {
                     code: response.result.data.value.TxResult.result.code ?? 0,
