@@ -278,11 +278,12 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             // }
 
             // console.log("chainId", chainId)
+            const existSafe = await this.safeRepository.checkExistsSafeAddress([message.sender, message.recipient]);
             if (
                 // true ||
                 // chain.safeAddresses.includes(message.sender) ||
                 // chain.safeAddresses.includes(message.recipient) ||
-                this.safeRepository.checkExistsSafeAddress([message.sender, message.recipient])
+                existSafe.length !== 0
             ) {
                 let auraTx = {
                     code: response.result.data.value.TxResult.result.code ?? 0,
