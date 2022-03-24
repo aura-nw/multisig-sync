@@ -60,12 +60,12 @@ export class SyncRestService implements ISyncRestService {
         }
     }
 
-    async getLatestBlockHeight(listAddress) {
+    async getLatestBlockHeight(listAddress, chainId) {
         let lastHeight = 0;
         for (let address of listAddress) {
             if (!address) continue;
             const blockHeight =
-                await this.auraTxRepository.getLatestBlockHeight(address);
+                await this.auraTxRepository.getLatestBlockHeight(address, chainId);
             if (blockHeight > lastHeight) lastHeight = blockHeight;
         }
         return lastHeight;
@@ -76,9 +76,10 @@ export class SyncRestService implements ISyncRestService {
         const client = await StargateClient.connect(network.rpc);
         // Get the current block height received from websocket
         let height = (await client.getBlock()).header.height;
-        // Get the last block height from DB
-        const lastHeight = await this.getLatestBlockHeight(listAddress);
         let chainId = network.id;
+        // Get the last block height from DB
+        const lastHeight = await this.getLatestBlockHeight(listAddress, chainId);
+        console.log(lastHeight);
 
         // Query each address in network to search for lost transactions
         for (let address of listAddress) {
@@ -135,6 +136,7 @@ export class SyncRestService implements ISyncRestService {
                     denom: message.denom,
                 };
                 lostTransations.push(auraTx);
+                this._logger.log(auraTx.txHash, 'TxHash being synced');
             }
             // Bulk insert transactions into DB
             if (lostTransations.length > 0)
