@@ -267,6 +267,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 };
             } catch (error) {
                 this._logger.error('this is error transaction');
+                this._logger.error(error);
             }
 
             // let listAddress = [...sender, ...receiver];
@@ -314,6 +315,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 this._logger.log('insert to db');
                 this._logger.debug(response);
                 await this.auraTxRepository.insertBulkTransaction([auraTx]);
+                this._logger.log(auraTx.txHash, 'TxHash being synced');
             } else {
                 this._logger.log('not safe address');
             }

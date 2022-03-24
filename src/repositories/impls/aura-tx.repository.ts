@@ -17,12 +17,13 @@ export class AuraTxRepository
         super(repos);
     }
 
-    async getLatestBlockHeight(address: string) {
+    async getLatestBlockHeight(address: string, chainId: number) {
         let query = this.repos
             .createQueryBuilder('auraTx')
             .select('auraTx.height as height')
             .where('fromAddress = :address', { address })
             .orWhere('toAddress = :address', { address })
+            .andWhere('internalChainId = :chainId', { chainId })
             .orderBy('height', 'DESC');
         let res = await query.getRawOne();
         if (res) {
