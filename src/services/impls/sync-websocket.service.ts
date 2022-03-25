@@ -267,7 +267,8 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 };
             } catch (error) {
                 this._logger.error('this is error transaction');
-                this._logger.error(error);
+                this._logger.error(`${error.name}: ${error.message}`);
+                this._logger.error(`${error.stack}`);
             }
 
             // let listAddress = [...sender, ...receiver];
