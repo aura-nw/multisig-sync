@@ -5,7 +5,7 @@ export interface IAuraTransactionRepository extends IBaseRepository {
     /**
      * Get the latest block height that store transaction of the given address
      */
-    getLatestBlockHeight(address: string);
+    getLatestBlockHeight(chainId: number);
 
     /**
      * Insert Transactions that was lost when service died
