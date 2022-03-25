@@ -36,7 +36,8 @@ export class SyncRestService implements ISyncRestService {
         this.listChainIdSubscriber = JSON.parse(
             this.configService.get('CHAIN_SUBCRIBE'),
         );
-        this.initSyncRest();
+        // this.initSyncRest();
+        this.findTxByHash('72BCF08D08CF4288BF7E1DEA751C3F4E56AC49764F8037AF0F5FB60C78B2CAC0', 'https://tendermint-testnet.aura.network');
     }
 
     async initSyncRest() {
@@ -60,14 +61,8 @@ export class SyncRestService implements ISyncRestService {
         }
     }
 
-    async getLatestBlockHeight(listAddress, chainId) {
-        let lastHeight = 0;
-        for (let address of listAddress) {
-            if (!address) continue;
-            const blockHeight =
-                await this.auraTxRepository.getLatestBlockHeight(address, chainId);
-            if (blockHeight > lastHeight) lastHeight = blockHeight;
-        }
+    async getLatestBlockHeight(chainId) {
+        const lastHeight = await this.auraTxRepository.getLatestBlockHeight(chainId);
         return lastHeight;
     }
 
@@ -78,21 +73,32 @@ export class SyncRestService implements ISyncRestService {
         let height = (await client.getBlock()).header.height;
         let chainId = network.id;
         // Get the last block height from DB
-        const lastHeight = await this.getLatestBlockHeight(listAddress, chainId);
+        let lastHeight = await this.getLatestBlockHeight(chainId);
         console.log(lastHeight);
+        console.log(height);
 
+        lastHeight = 500000
+        // height = 930386
         // Query each address in network to search for lost transactions
-        for (let address of listAddress) {
+        // for (let address of listAddress) {
+            // console.log(network)
+            let address = 'aura1328x7tacz28w96zl4j50qnfg4gqjdd56wqd3ke'
+            if(address == 'aura1328x7tacz28w96zl4j50qnfg4gqjdd56wqd3ke') {
+                console.log(address);
             let lostTransations = [];
-            if (!address) continue;
+            // if (!address) continue;
             const query: SearchTxQuery = {
                 sentFromOrTo: address,
+                // height: 930386
             };
+            console.log(query)
             const filter: SearchTxFilter = {
                 minHeight: lastHeight,
                 maxHeight: height,
             };
+            console.log(filter)
             const res = await client.searchTx(query, filter);
+            console.log(res);
             for (let i = 0; i < res.length; i++) {
                 let log: any = res[i].rawLog;
                 let message = {
@@ -101,6 +107,7 @@ export class SyncRestService implements ISyncRestService {
                     denom: '',
                     amount: 0,
                 };
+                console.log(log);
                 log = JSON.parse(log)[0].events;
 
                 let attributes = log.find(
@@ -143,10 +150,18 @@ export class SyncRestService implements ISyncRestService {
                 await this.auraTxRepository.insertBulkTransaction(
                     lostTransations,
                 );
-        }
+            }
+        // }
     }
     // @Cron(CronExpression.EVERY_SECOND)
     async startSyncRest() {
         this._logger.log('call every second');
+    }
+
+    async findTxByHash(txHash, rpc) {
+        const client = await StargateClient.connect(rpc);
+        const tx = await client.getTx(txHash);
+        console.log(tx);
+        client.disconnect();
     }
 }
