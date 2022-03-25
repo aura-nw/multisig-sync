@@ -8,6 +8,12 @@ import { IChainRepository } from 'src/repositories/ichain.repository';
 import { ISafeRepository } from 'src/repositories/isafe.repository';
 import { ConfigService } from 'src/shared/services/config.service';
 import * as WebSocket from 'ws';
+import {
+    logs,
+    SearchTxFilter,
+    SearchTxQuery,
+    StargateClient,
+} from '@cosmjs/stargate';
 // import { ResponseDto } from "src/dtos/responses/response.dto";
 // import { ErrorMap } from "../../common/error.map";
 // import { MODULE_REQUEST, REPOSITORY_INTERFACE } from "../../module.config";
@@ -242,6 +248,18 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             let chain = this.listChain.find((x) => x.websocket == source);
             let chainId = chain.id;
 
+            //
+            console.log('response: ', response.result);
+            // let rawLog = logs.parseRawLog(response.result);
+            // console.log(rawLog);
+            // const amountAttr = logs.findAttribute(
+            //     logs.parseRawLog(result.rawLog),
+            //     'transfer',
+            //     'amount',
+            // );
+
+            //
+
             // [0].events
             let message = {
                 recipient: '',
@@ -251,9 +269,13 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             };
             try {
                 log = JSON.parse(log)[0].events;
+
                 let attributes = log.find(
                     (x) => x.type == 'transfer',
                 ).attributes;
+                // let param = this.findAttribute(log, 'transfer', 'recipient');
+                // console.log('param: ', param);
+
                 message = {
                     recipient: attributes.find((x) => x.key == 'recipient')
                         .value,
@@ -267,8 +289,18 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 };
             } catch (error) {
                 this._logger.error('this is error transaction');
-                this._logger.error(`${error.name}: ${error.message}`);
-                this._logger.error(`${error.stack}`);
+                this._logger.error(error);
+                message.sender = response.result.events['transfer.sender'][0];
+                message.recipient =
+                    response.result.events['transfer.recipient'][0];
+                message.denom =
+                    response.result.events['transfer.amount'][0].match(
+                        /[a-zA-Z]+/g,
+                    )[0];
+                message.amount =
+                    response.result.events['transfer.amount'][0].match(
+                        /\d+/g,
+                    )[0];
             }
 
             // let listAddress = [...sender, ...receiver];
@@ -280,7 +312,10 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             // }
 
             // console.log("chainId", chainId)
-            const existSafe = await this.safeRepository.checkExistsSafeAddress([message.sender, message.recipient]);
+            const existSafe = await this.safeRepository.checkExistsSafeAddress([
+                message.sender,
+                message.recipient,
+            ]);
             if (
                 // true ||
                 // chain.safeAddresses.includes(message.sender) ||
