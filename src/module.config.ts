@@ -1,12 +1,14 @@
 import { SubcribeNewAddressRequest } from './dtos/requests/websocket/subcribe-new-address.request';
 import { AuraTx } from './entities/aura-tx.entity';
 import { Chain } from './entities/chain.entity';
+import { MultisigTransaction } from './entities/multisig-transaction.entity';
 import { Safe } from './entities/safe.entity';
 
 export const ENTITIES_CONFIG = {
     AURA_TX: AuraTx,
     SAFE: Safe,
     CHAIN: Chain,
+    MULTISIG_TRANSACTION: MultisigTransaction,
 };
 
 export const SERVICE_INTERFACE = {
@@ -18,6 +20,7 @@ export const REPOSITORY_INTERFACE = {
     IAURA_TX_REPOSITORY: 'IAuraTxRepository',
     ISAFE_REPOSITORY: 'ISafeRepository',
     ICHAIN_REPOSITORY: 'IChainRepository',
+    IMULTISIG_TRANSACTION_REPOSITORY: 'IMultisigTransactionRepository',
 };
 
 export const PROVIDER_INTERFACE = {};
