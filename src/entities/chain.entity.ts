@@ -17,4 +17,7 @@ export class Chain extends BaseEntityAutoId {
 
     @Column({ name: 'ChainId' })
     chainId: string;
+
+    @Column({ name: 'Denom' })
+    denom: string;
 }
