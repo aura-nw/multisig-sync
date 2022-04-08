@@ -21,12 +21,16 @@ import {
 // import { IMultisigWalletService } from "../imultisig-wallet.service";
 // import { createMultisigThresholdPubkey, pubkeyToAddress, SinglePubkey } from "@cosmjs/amino";
 import { ISyncWebsocketService } from '../isync-websocket.service';
+import { MESSAGE_ACTION } from 'src/common/constants/app.constant';
+import e from 'express';
 @Injectable()
 export class SyncWebsocketService implements ISyncWebsocketService {
     private readonly _logger = new Logger(SyncWebsocketService.name);
     private listChain = [];
     private listAddress = [];
     private listChainIdSubscriber;
+    private listMessageAction = [MESSAGE_ACTION.MSG_EXECUTE_CONTRACT, MESSAGE_ACTION.MSG_INSTANTIATE_CONTRACT, MESSAGE_ACTION.MSG_MIGRATE_CONTRACT, MESSAGE_ACTION.MSG_SEND, MESSAGE_ACTION.MSG_STORE_CODE];
+
     constructor(
         private configService: ConfigService,
         @Inject(REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY)
@@ -163,6 +167,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             self.connectWebsocket(this, network.safeAddresses);
         });
         websocket.on('message', function (message) {
+            // const network = JSON.parse(this.config.get("CHAIN_SUBCRIBE"));
+            // if(network[0] === 'bombay-12') self.handleTerraMessage(network.websocket, message);
+            // else 
             self.handleMessage(network.websocket, message);
         });
         websocket.on('error', (error) => {
@@ -239,122 +246,133 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         let response = JSON.parse(buffer.toString());
 
         if (response?.result && Object.keys(response.result).length) {
-            // let listAddress = []
-            let sender = response.result.events['coin_spent.spender'] ?? [];
-            let receiver =
-                response.result.events['coin_received.receiver'] ?? [];
-            let fee = response.result.events['tx.fee'];
-            let log = response.result.data.value.TxResult.result.log;
-            let chain = this.listChain.find((x) => x.websocket == source);
-            let chainId = chain.id;
+            if (this.listMessageAction.includes(response.result.events['message.action'])) {
+                // let listAddress = []
+                let sender = response.result.events['coin_spent.spender'] ?? [];
+                let receiver =
+                    response.result.events['coin_received.receiver'] ?? [];
+                let fee = response.result.events['tx.fee'];
+                let log = response.result.data.value.TxResult.result.log;
+                let chain = this.listChain.find((x) => x.websocket == source);
+                let chainId = chain.id;
 
-            //
-            console.log('response: ', response.result);
-            // let rawLog = logs.parseRawLog(response.result);
-            // console.log(rawLog);
-            // const amountAttr = logs.findAttribute(
-            //     logs.parseRawLog(result.rawLog),
-            //     'transfer',
-            //     'amount',
-            // );
+                // console.log('response: ', JSON.stringify(response.result.events));
+                // let rawLog = logs.parseRawLog(response.result);
+                // console.log(rawLog);
+                // const amountAttr = logs.findAttribute(
+                //     logs.parseRawLog(result.rawLog),
+                //     'transfer',
+                //     'amount',
+                // );
 
-            //
+                //
 
-            // [0].events
-            let message = {
-                recipient: '',
-                sender: '',
-                denom: '',
-                amount: 0,
-            };
-            try {
-                log = JSON.parse(log)[0].events;
-
-                let attributes = log.find(
-                    (x) => x.type == 'transfer',
-                ).attributes;
-                // let param = this.findAttribute(log, 'transfer', 'recipient');
-                // console.log('param: ', param);
-
-                message = {
-                    recipient: attributes.find((x) => x.key == 'recipient')
-                        .value,
-                    sender: attributes.find((x) => x.key == 'sender').value,
-                    denom: attributes
-                        .find((x) => x.key == 'amount')
-                        .value.match(/[a-zA-Z]+/g)[0],
-                    amount: attributes
-                        .find((x) => x.key == 'amount')
-                        .value.match(/\d+/g)[0],
+                // [0].events
+                let message = {
+                    recipient: '',
+                    sender: '',
+                    denom: '',
+                    amount: 0,
                 };
-            } catch (error) {
-                this._logger.error('this is error transaction');
-                this._logger.error(error);
-                message.sender = response.result.events['transfer.sender'][0];
-                message.recipient =
-                    response.result.events['transfer.recipient'][0];
-                message.denom =
-                    response.result.events['transfer.amount'][0].match(
-                        /[a-zA-Z]+/g,
-                    )[0];
-                message.amount =
-                    response.result.events['transfer.amount'][0].match(
-                        /\d+/g,
-                    )[0];
-            }
+                try {
+                    log = JSON.parse(log)[0].events;
 
-            // let listAddress = [...sender, ...receiver];
-            // if (listAddress.length > 0) {
-            //     let checkExistsSafeAddress =
-            //         await this.safeRepository.checkExistsSafeAddress(
-            //             listAddress,
-            //         );
-            // }
+                    let attributes = log.find(
+                        (x) => x.type == 'transfer',
+                    ).attributes;
+                    // let param = this.findAttribute(log, 'transfer', 'recipient');
+                    // console.log('param: ', param);
 
-            // console.log("chainId", chainId)
-            const existSafe = await this.safeRepository.checkExistsSafeAddress([
-                message.sender,
-                message.recipient,
-            ]);
-            if (
-                // true ||
-                // chain.safeAddresses.includes(message.sender) ||
-                // chain.safeAddresses.includes(message.recipient) ||
-                existSafe.length !== 0
-            ) {
-                let auraTx = {
-                    code: response.result.data.value.TxResult.result.code ?? 0,
-                    codeSpace:
-                        response.result.data.value.TxResult.result.codespace ??
-                        '',
-                    data: '',
-                    gasUsed:
-                        response.result.data.value.TxResult.result.gas_used ??
-                        0,
-                    gasWanted:
-                        response.result.data.value.TxResult.result.gas_wanted ??
-                        0,
-                    height: response.result.events['tx.height'][0],
-                    info: '',
-                    logs: '',
-                    rawLogs: response.result.data.value.TxResult.result.log,
-                    tx: '',
-                    txHash: response.result.events['tx.hash'][0],
-                    timeStamp: null,
-                    chainId: chainId,
-                    fromAddress: message.sender,
-                    toAddress: message.recipient,
-                    amount: message.amount,
-                    denom: message.denom,
-                };
-                // let result = await this.auraTxRepository.findAll();
-                this._logger.log('insert to db');
-                this._logger.debug(response);
-                await this.auraTxRepository.insertBulkTransaction([auraTx]);
-                this._logger.log(auraTx.txHash, 'TxHash being synced');
+                    message = {
+                        recipient: attributes.find((x) => x.key == 'recipient')
+                            .value,
+                        sender: attributes.find((x) => x.key == 'sender').value,
+                        denom: attributes
+                            .find((x) => x.key == 'amount')
+                            .value.match(/[a-zA-Z]+/g)[0],
+                        amount: attributes
+                            .find((x) => x.key == 'amount')
+                            .value.match(/\d+/g)[0],
+                    };
+                } catch (error) {
+                    this._logger.error('this is error transaction');
+                    this._logger.error(error);
+                    message.sender = response.result.events['transfer.sender'][0];
+                    message.recipient =
+                        response.result.events['transfer.recipient'][0];
+                    message.denom =
+                        response.result.events['transfer.amount'][0].match(
+                            /[a-zA-Z]+/g,
+                        )[0];
+                    message.amount =
+                        response.result.events['transfer.amount'][0].match(
+                            /\d+/g,
+                        )[0];
+                }
+
+                // let listAddress = [...sender, ...receiver];
+                // if (listAddress.length > 0) {
+                //     let checkExistsSafeAddress =
+                //         await this.safeRepository.checkExistsSafeAddress(
+                //             listAddress,
+                //         );
+                // }
+
+                // console.log("chainId", chainId)
+                const existSafe = await this.safeRepository.checkExistsSafeAddress([
+                    message.sender,
+                    message.recipient,
+                ]);
+                if (
+                    // true ||
+                    // chain.safeAddresses.includes(message.sender) ||
+                    // chain.safeAddresses.includes(message.recipient) ||
+                    existSafe.length !== 0
+                ) {
+                    let auraTx = {
+                        code: response.result.data.value.TxResult.result.code ?? 0,
+                        codeSpace:
+                            response.result.data.value.TxResult.result.codespace ??
+                            '',
+                        data: '',
+                        gasUsed:
+                            response.result.data.value.TxResult.result.gas_used ??
+                            0,
+                        gasWanted:
+                            response.result.data.value.TxResult.result.gas_wanted ??
+                            0,
+                        height: response.result.events['tx.height'][0],
+                        info: '',
+                        logs: '',
+                        rawLogs: response.result.data.value.TxResult.result.log,
+                        tx: '',
+                        txHash: response.result.events['tx.hash'][0],
+                        timeStamp: null,
+                        chainId: chainId,
+                        fromAddress: message.sender,
+                        toAddress: message.recipient,
+                        amount: message.amount,
+                        denom: message.denom,
+                    };
+                    // let result = await this.auraTxRepository.findAll();
+                    this._logger.log('insert to db');
+                    this._logger.debug(response);
+                    await this.auraTxRepository.insertBulkTransaction([auraTx]);
+                    this._logger.log(auraTx.txHash, 'TxHash being synced');
+                } else {
+                    this._logger.log('not safe address');
+                }
             } else {
-                this._logger.log('not safe address');
+                this._logger.log('Unwanted message action');
             }
+        }
+    }
+
+    async handleTerraMessage(source, message) {
+        let buffer = Buffer.from(message);
+        let response = JSON.parse(buffer.toString());
+        if (response?.result && Object.keys(response.result).length) {
+
         }
     }
 }
