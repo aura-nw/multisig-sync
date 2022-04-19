@@ -35,7 +35,7 @@ export class SyncRestService implements ISyncRestService {
         private multisigTransactionRepository: IMultisigTransactionRepository,
     ) {
         this._logger.log(
-            '============== Constructor Sync Websocket Service ==============',
+            '============== Constructor Sync Rest Service ==============',
         );
         this.listChainIdSubscriber = JSON.parse(
             this.configService.get('CHAIN_SUBCRIBE'),
@@ -150,7 +150,7 @@ export class SyncRestService implements ISyncRestService {
         this._logger.log('call every second');
     }
 
-    @Cron(CronExpression.EVERY_5_SECONDS)
+    // @Cron(CronExpression.EVERY_5_SECONDS)
     async findTxByHash(network) {
         if(!network) 
             network = JSON.parse(this.config.get("CHAIN_SUBCRIBE"));
