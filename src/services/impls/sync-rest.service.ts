@@ -61,7 +61,7 @@ export class SyncRestService implements ISyncRestService {
 
         for (let network of this.listChain) {
             this.syncFromNetwork(network, network.safeAddresses);
-            // this.findTxByHash(network);
+            this.findTxByHash(network);
         }
     }
 
@@ -151,47 +151,47 @@ export class SyncRestService implements ISyncRestService {
     }
 
     // @Cron(CronExpression.EVERY_5_SECONDS)
-    // async findTxByHash(network) {
-    //     if(!network) 
-    //         network = JSON.parse(this.config.get("CHAIN_SUBCRIBE"));
-    //     const chain = await this.chainRepository.findChainByChainId([network.chainId ? network.chainId : network[0]]);
-    //     let pendingTransations = [];
-    //     const client = await StargateClient.connect(chain[0].rpc);
-    //     const listPendingTx = await this.multisigTransactionRepository.findPendingMultisigTransaction(chain[0].denom);
-    //     if(listPendingTx.length > 0) {
-    //         for(let i = 0; i < listPendingTx.length; i++) {
-    //             console.log(listPendingTx[i].txHash)
-    //             const tx = await client.getTx(listPendingTx[i].txHash);
-    //             console.log(tx);
-    //             if(tx) {
-    //                 let auraTx = {
-    //                     code: tx.code ?? 0,
-    //                     data: '',
-    //                     gasUsed: null,
-    //                     gasWanted: null,
-    //                     height: tx.height,
-    //                     info: '',
-    //                     logs: '',
-    //                     rawLogs: tx.rawLog,
-    //                     tx: '',
-    //                     txHash: tx.hash,
-    //                     timeStamp: null,
-    //                     chainId: network.chainId,
-    //                     fromAddress: null,
-    //                     toAddress: null,
-    //                     amount: null,
-    //                     denom: null,
-    //                 };
-    //                 pendingTransations.push(auraTx);
-    //                 this._logger.log(auraTx.txHash, 'Pending Tx being updated');
-    //             }
-    //         }
-    //     }
-    //     // Bulk insert transactions into DB
-    //     if (pendingTransations.length > 0)
-    //     await this.auraTxRepository.insertBulkTransaction(
-    //         pendingTransations,
-    //     );
-    //     client.disconnect();
-    // }
+    async findTxByHash(network) {
+        if(!network) 
+            network = JSON.parse(this.config.get("CHAIN_SUBCRIBE"));
+        const chain = await this.chainRepository.findChainByChainId([network.chainId ? network.chainId : network[0]]);
+        let pendingTransations = [];
+        const client = await StargateClient.connect(chain[0].rpc);
+        const listPendingTx = await this.multisigTransactionRepository.findPendingMultisigTransaction(chain[0].denom);
+        if(listPendingTx.length > 0) {
+            for(let i = 0; i < listPendingTx.length; i++) {
+                console.log(listPendingTx[i].txHash)
+                const tx = await client.getTx(listPendingTx[i].txHash);
+                console.log(tx);
+                if(tx) {
+                    let auraTx = {
+                        code: tx.code ?? 0,
+                        data: '',
+                        gasUsed: null,
+                        gasWanted: null,
+                        height: tx.height,
+                        info: '',
+                        logs: '',
+                        rawLogs: tx.rawLog,
+                        tx: '',
+                        txHash: tx.hash,
+                        timeStamp: null,
+                        chainId: network.chainId,
+                        fromAddress: null,
+                        toAddress: null,
+                        amount: null,
+                        denom: null,
+                    };
+                    pendingTransations.push(auraTx);
+                    this._logger.log(auraTx.txHash, 'Pending Tx being updated');
+                }
+            }
+        }
+        // Bulk insert transactions into DB
+        if (pendingTransations.length > 0)
+        await this.auraTxRepository.insertBulkTransaction(
+            pendingTransations,
+        );
+        client.disconnect();
+    }
 }
