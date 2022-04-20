@@ -157,18 +157,61 @@ export class SyncRestService implements ISyncRestService {
         const chain = await this.chainRepository.findChainByChainId([network.chainId ? network.chainId : network[0]]);
         let pendingTransations = [];
         const client = await StargateClient.connect(chain[0].rpc);
-        const listPendingTx = await this.multisigTransactionRepository.findPendingMultisigTransaction(chain[0].denom);
+        const listPendingTx = await this.multisigTransactionRepository.findPendingMultisigTransaction(chain[0].id);
         if(listPendingTx.length > 0) {
             for(let i = 0; i < listPendingTx.length; i++) {
                 console.log(listPendingTx[i].txHash)
                 const tx = await client.getTx(listPendingTx[i].txHash);
                 console.log(tx);
+
+                let message = {
+                    recipient: '',
+                    sender: '',
+                    denom: '',
+                    amount: 0,
+                };
+                try {
+                    const log = JSON.parse(tx.rawLog)[0].events;
+
+                    let attributes = log.find(
+                        (x) => x.type == 'transfer',
+                    ).attributes;
+                    // let param = this.findAttribute(log, 'transfer', 'recipient');
+                    // console.log('param: ', param);
+
+                    message = {
+                        recipient: attributes.find((x) => x.key == 'recipient')
+                            .value,
+                        sender: attributes.find((x) => x.key == 'sender').value,
+                        denom: attributes
+                            .find((x) => x.key == 'amount')
+                            .value.match(/[a-zA-Z]+/g)[0],
+                        amount: attributes
+                            .find((x) => x.key == 'amount')
+                            .value.match(/\d+/g)[0],
+                    };
+                } catch (error) {
+                    this._logger.error('this is error transaction');
+                    this._logger.error(error);
+                    // message.sender = response.result.events['transfer.sender'][0];
+                    // message.recipient =
+                    //     response.result.events['transfer.recipient'][0];
+                    // message.denom =
+                    //     response.result.events['transfer.amount'][0].match(
+                    //         /[a-zA-Z]+/g,
+                    //     )[0];
+                    // message.amount =
+                    //     response.result.events['transfer.amount'][0].match(
+                    //         /\d+/g,
+                    //     )[0];
+                }
+
                 if(tx) {
                     let auraTx = {
                         code: tx.code ?? 0,
                         data: '',
-                        gasUsed: null,
-                        gasWanted: null,
+                        gasUsed: tx.gasUsed ?? 0,
+                        gasWanted: tx.gasWanted ?? 0,
                         height: tx.height,
                         info: '',
                         logs: '',
@@ -177,10 +220,10 @@ export class SyncRestService implements ISyncRestService {
                         txHash: tx.hash,
                         timeStamp: null,
                         chainId: network.chainId,
-                        fromAddress: null,
-                        toAddress: null,
-                        amount: null,
-                        denom: null,
+                        fromAddress: message.sender,
+                        toAddress: message.recipient,
+                        amount: message.amount,
+                        denom: message.denom,
                     };
                     pendingTransations.push(auraTx);
                     this._logger.log(auraTx.txHash, 'Pending Tx being updated');
