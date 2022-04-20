@@ -8,6 +8,7 @@ import { HttpService } from '@nestjs/axios';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { catchError, firstValueFrom, retry, tap, throwError } from 'rxjs';
+import { MESSAGE_ACTION } from 'src/common/constants/app.constant';
 import { REPOSITORY_INTERFACE } from 'src/module.config';
 import { IAuraTransactionRepository } from 'src/repositories/iaura-tx.repository';
 import { IChainRepository } from 'src/repositories/ichain.repository';
@@ -21,6 +22,7 @@ export class SyncRestService implements ISyncRestService {
     private listChain;
     private listSafeAddress;
     private listChainIdSubscriber;
+    private listMessageAction = [MESSAGE_ACTION.MSG_EXECUTE_CONTRACT, MESSAGE_ACTION.MSG_INSTANTIATE_CONTRACT, MESSAGE_ACTION.MSG_MIGRATE_CONTRACT, MESSAGE_ACTION.MSG_SEND, MESSAGE_ACTION.MSG_STORE_CODE];
     private config: ConfigService = new ConfigService();
     constructor(
         private configService: ConfigService,
@@ -91,7 +93,6 @@ export class SyncRestService implements ISyncRestService {
                 maxHeight: height,
             };
             const res = await client.searchTx(query, filter);
-            // console.log(res);
             for (let i = 0; i < res.length; i++) {
                 let log: any = res[i].rawLog;
                 let message = {
@@ -103,40 +104,54 @@ export class SyncRestService implements ISyncRestService {
                 console.log(log);
                 log = JSON.parse(log)[0].events;
 
-                let attributes = log.find(
-                    (x) => x.type == 'transfer',
+                let messageType = log.find(
+                    (x) => x.type == 'message',
                 ).attributes;
-                message = {
-                    recipient: attributes.find((x) => x.key == 'recipient')
-                        .value,
-                    sender: attributes.find((x) => x.key == 'sender').value,
-                    denom: attributes
-                        .find((x) => x.key == 'amount')
-                        .value.match(/[a-zA-Z]+/g)[0],
-                    amount: attributes
-                        .find((x) => x.key == 'amount')
-                        .value.match(/\d+/g)[0],
-                };
-                let auraTx = {
-                    code: res[i].code ?? 0,
-                    data: '',
-                    gasUsed: res[i].gasUsed,
-                    gasWanted: res[i].gasWanted,
-                    height: res[i].height,
-                    info: '',
-                    logs: '',
-                    rawLogs: res[i].rawLog,
-                    tx: '',
-                    txHash: res[i].hash,
-                    timeStamp: null,
-                    chainId: chainId,
-                    fromAddress: message.sender,
-                    toAddress: message.recipient,
-                    amount: message.amount,
-                    denom: message.denom,
-                };
-                lostTransations.push(auraTx);
-                this._logger.log(auraTx.txHash, 'TxHash being synced');
+                let messageAction;
+                try {
+                    messageAction = messageType.find((x) => x.key == 'action').value;
+                } catch (error) {
+                    this._logger.error('Error get message action', error);
+                }
+                if(this.listMessageAction.includes(messageAction)) {
+                    let attributes = log.find(
+                        (x) => x.type == 'transfer',
+                    ).attributes;
+                    message = {
+                        recipient: attributes.find((x) => x.key == 'recipient')
+                            .value,
+                        sender: attributes.find((x) => x.key == 'sender').value,
+                        denom: attributes
+                            .find((x) => x.key == 'amount')
+                            .value.match(/[a-zA-Z]+/g)[0],
+                        amount: attributes
+                            .find((x) => x.key == 'amount')
+                            .value.match(/\d+/g)[0],
+                    };
+                    let auraTx = {
+                        code: res[i].code ?? 0,
+                        data: '',
+                        gasUsed: res[i].gasUsed,
+                        gasWanted: res[i].gasWanted,
+                        fee: null,
+                        height: res[i].height,
+                        info: '',
+                        logs: '',
+                        rawLogs: res[i].rawLog,
+                        tx: '',
+                        txHash: res[i].hash,
+                        timeStamp: null,
+                        chainId: chainId,
+                        fromAddress: message.sender,
+                        toAddress: message.recipient,
+                        amount: message.amount,
+                        denom: message.denom,
+                    };
+                    lostTransations.push(auraTx);
+                    this._logger.log(auraTx.txHash, 'TxHash being synced');
+                } else {
+                    this._logger.error('Unwanted message action');
+                }
             }
             // Bulk insert transactions into DB
             if (lostTransations.length > 0)
