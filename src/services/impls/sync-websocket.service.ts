@@ -247,7 +247,13 @@ export class SyncWebsocketService implements ISyncWebsocketService {
 
         if (response?.result && Object.keys(response.result).length) {
             console.log(response.result);
-            if (this.listMessageAction.includes(response.result.events['message.action'][0])) {
+            let messageAction;
+            try {
+                messageAction = response.result.events['message.action'][0];
+            } catch (error) {
+                this._logger.error('Error get message action', error);
+            }
+            if (this.listMessageAction.includes(messageAction)) {
                 // let listAddress = []
                 let sender = response.result.events['coin_spent.spender'] ?? [];
                 let receiver =
@@ -350,7 +356,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                         rawLogs: response.result.data.value.TxResult.result.log,
                         tx: '',
                         txHash: response.result.events['tx.hash'][0],
-                        timeStamp: null,
+                        timeStamp: response.result.data.value.TxResult.result.timeStamp ?? null,
                         chainId: chainId,
                         fromAddress: message.sender,
                         toAddress: message.recipient,
@@ -366,7 +372,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                     this._logger.log('not safe address');
                 }
             } else {
-                this._logger.log('Unwanted message action');
+                this._logger.error('Unwanted message action');
             }
         }
     }
