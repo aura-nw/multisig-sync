@@ -252,10 +252,11 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 let sender = response.result.events['coin_spent.spender'] ?? [];
                 let receiver =
                     response.result.events['coin_received.receiver'] ?? [];
-                let fee = response.result.events['tx.fee'];
+                // let fee = response.result.events['tx.fee'][0].match(/\d+/g)[0];
                 let log = response.result.data.value.TxResult.result.log;
                 let chain = this.listChain.find((x) => x.websocket == source);
                 let chainId = chain.id;
+
 
                 // console.log('response: ', JSON.stringify(response.result.events));
                 // let rawLog = logs.parseRawLog(response.result);
@@ -342,6 +343,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                         gasWanted:
                             response.result.data.value.TxResult.result.gas_wanted ??
                             0,
+                        fee: response.result.events['tx.fee'][0].match(/\d+/g)[0] ?? 0,
                         height: response.result.events['tx.height'][0],
                         info: '',
                         logs: '',

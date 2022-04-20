@@ -32,10 +32,10 @@ export class AuraTxRepository
 
     async insertBulkTransaction(listTransations: any[]) {
         let query = `
-            INSERT IGNORE INTO AuraTx(CreatedAt, UpdatedAt, Id, Code, Data, GasUsed, GasWanted, Height, Info, Logs, RawLogs, FromAddress, ToAddress, Amount, Denom, TimeStamp, Tx, TxHash, InternalChainId) 
+            INSERT IGNORE INTO AuraTx(CreatedAt, UpdatedAt, Id, Code, Data, GasUsed, GasWanted, Fee, Height, Info, Logs, RawLogs, FromAddress, ToAddress, Amount, Denom, TimeStamp, Tx, TxHash, InternalChainId) 
             VALUES`;
         for (let auraTx of listTransations) {
-            query += `(DEFAULT, DEFAULT, DEFAULT, ${auraTx.code}, '${auraTx.data}', ${auraTx.gasUsed}, ${auraTx.gasWanted}, ${auraTx.height}, '${auraTx.info}', '${auraTx.logs}', '${auraTx.rawLogs}', '${auraTx.fromAddress}', '${auraTx.toAddress}', ${auraTx.amount}, '${auraTx.denom}', ${auraTx.timeStamp}, '${auraTx.tx}', '${auraTx.txHash}', '${auraTx.chainId}'),`;
+            query += `(DEFAULT, DEFAULT, DEFAULT, ${auraTx.code}, '${auraTx.data}', ${auraTx.gasUsed}, ${auraTx.gasWanted}, ${auraTx.fee}, ${auraTx.height}, '${auraTx.info}', '${auraTx.logs}', '${auraTx.rawLogs}', '${auraTx.fromAddress}', '${auraTx.toAddress}', ${auraTx.amount}, '${auraTx.denom}', ${auraTx.timeStamp}, '${auraTx.tx}', '${auraTx.txHash}', '${auraTx.chainId}'),`;
         }
         // console.log(query);
         query = query.substring(0, query.length - 1) + ';';
