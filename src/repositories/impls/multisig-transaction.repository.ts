@@ -15,12 +15,12 @@ export class MultisigTransactionRepository extends BaseRepository implements IMu
         super(repos);
     }
 
-    async findPendingMultisigTransaction(denom: string): Promise<any> {
+    async findPendingMultisigTransaction(internalChainId: number): Promise<any> {
         const status = 'PENDING';
         let query = this.repos.createQueryBuilder('multisigTransaction')
             .where('multisigTransaction.status = :status', { status })
             .andWhere('multisigTransaction.txHash != \'\'')
-            .andWhere('multisigTransaction.denom = :denom', { denom })
+            .andWhere('multisigTransaction.internalChainId = :internalChainId', { internalChainId })
             .select([
                 'multisigTransaction.txHash as txHash'
             ]);
