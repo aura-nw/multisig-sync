@@ -127,6 +127,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     }
 
     async startSyncWebsocket() {
+        await this.sleep(5000);
         this.listChain = await this.chainRepository.findChainByChainId(
             this.listChainIdSubscriber,
         );
@@ -375,6 +376,12 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 this._logger.error('Unwanted message action');
             }
         }
+    }
+
+    sleep(ms) {
+        return new Promise((resolve) => {
+            setTimeout(resolve, ms);
+        });
     }
 
     async handleTerraMessage(source, message) {
