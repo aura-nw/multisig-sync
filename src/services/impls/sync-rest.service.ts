@@ -133,7 +133,7 @@ export class SyncRestService implements ISyncRestService {
                         data: '',
                         gasUsed: res[i].gasUsed,
                         gasWanted: res[i].gasWanted,
-                        fee: null,
+                        fee: undefined,
                         height: res[i].height,
                         info: '',
                         logs: '',
