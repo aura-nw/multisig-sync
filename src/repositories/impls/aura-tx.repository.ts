@@ -22,7 +22,7 @@ export class AuraTxRepository
             .createQueryBuilder('auraTx')
             .select('auraTx.height as height')
             .where('internalChainId = :chainId', { chainId })
-            .orderBy('height', 'DESC');
+            .orderBy('auraTx.id', 'DESC');
         let res = await query.getRawOne();
         if (res) {
             return res.height;
