@@ -1,5 +1,5 @@
+import { decodeTxRaw } from '@cosmjs/proto-signing';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { ErrorMap } from 'src/common/error.map';
 import { ResponseDto } from 'src/dtos/responses/response.dto';
 import { MODULE_REQUEST, REPOSITORY_INTERFACE } from 'src/module.config';
@@ -8,28 +8,22 @@ import { IChainRepository } from 'src/repositories/ichain.repository';
 import { ISafeRepository } from 'src/repositories/isafe.repository';
 import { ConfigService } from 'src/shared/services/config.service';
 import * as WebSocket from 'ws';
-import {
-    logs,
-    SearchTxFilter,
-    SearchTxQuery,
-    StargateClient,
-} from '@cosmjs/stargate';
-// import { ResponseDto } from "src/dtos/responses/response.dto";
-// import { ErrorMap } from "../../common/error.map";
-// import { MODULE_REQUEST, REPOSITORY_INTERFACE } from "../../module.config";
-// import { ConfigService } from "src/shared/services/config.service";
-// import { IMultisigWalletService } from "../imultisig-wallet.service";
-// import { createMultisigThresholdPubkey, pubkeyToAddress, SinglePubkey } from "@cosmjs/amino";
 import { ISyncWebsocketService } from '../isync-websocket.service';
 import { MESSAGE_ACTION } from 'src/common/constants/app.constant';
-import e from 'express';
+import { StargateClient } from '@cosmjs/stargate';
 @Injectable()
 export class SyncWebsocketService implements ISyncWebsocketService {
     private readonly _logger = new Logger(SyncWebsocketService.name);
     private listChain = [];
     private listAddress = [];
     private listChainIdSubscriber;
-    private listMessageAction = [MESSAGE_ACTION.MSG_EXECUTE_CONTRACT, MESSAGE_ACTION.MSG_INSTANTIATE_CONTRACT, MESSAGE_ACTION.MSG_MIGRATE_CONTRACT, MESSAGE_ACTION.MSG_SEND, MESSAGE_ACTION.MSG_STORE_CODE];
+    private listMessageAction = [
+        MESSAGE_ACTION.MSG_EXECUTE_CONTRACT,
+        MESSAGE_ACTION.MSG_INSTANTIATE_CONTRACT,
+        MESSAGE_ACTION.MSG_MIGRATE_CONTRACT,
+        MESSAGE_ACTION.MSG_SEND,
+        MESSAGE_ACTION.MSG_STORE_CODE,
+    ];
 
     constructor(
         private configService: ConfigService,
@@ -170,8 +164,8 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         websocket.on('message', function (message) {
             // const network = JSON.parse(this.config.get("CHAIN_SUBCRIBE"));
             // if(network[0] === 'bombay-12') self.handleTerraMessage(network.websocket, message);
-            // else 
-            self.handleMessage(network.websocket, message);
+            // else
+            self.handleMessage(network, message);
         });
         websocket.on('error', (error) => {
             self._logger.error(error);
@@ -212,169 +206,111 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         } catch (error) {
             this._logger.error(error);
         }
-
-        // if (listAddress) {
-        //     listAddress.forEach((address) => {
-        //         let queryTransactionFromAddress = {
-        //             jsonrpc: '2.0',
-        //             method: 'subscribe',
-        //             id: '0',
-        //             params: {
-        //                 query: `tm.event='Tx' AND transfer.sender = '${address}'`,
-        //             },
-        //         };
-        //         let queryTransactionToAddress = {
-        //             jsonrpc: '2.0',
-        //             method: 'subscribe',
-        //             id: '0',
-        //             params: {
-        //                 query: `tm.event='Tx' AND transfer.recipient = '${address}'`,
-        //             },
-        //         };
-        //         try {
-        //             websocket.send(JSON.stringify(queryTransactionFromAddress));
-        //             websocket.send(JSON.stringify(queryTransactionToAddress));
-        //         } catch (error) {
-        //             this._logger.error(error);
-        //         }
-        //     });
-        // } else {
-        //     this._logger.log('There is no address to connect websocket');
-        // }
     }
     async handleMessage(source, message) {
+        const { websocket, rpc } = source;
         let buffer = Buffer.from(message);
         let response = JSON.parse(buffer.toString());
 
-        if (response?.result && Object.keys(response.result).length) {
-            console.log(response.result);
-            let messageAction;
+        if (
+            !response ||
+            !response.result ||
+            !Object.keys(response.result).length
+        )
+            return;
+
+        const result = response.result;
+        console.log(result);
+        let messageAction;
+        try {
+            messageAction = result.events['message.action'][0];
+        } catch (error) {
+            this._logger.error('Error get message action', error);
+            const indexedTx = await this.searchTxRest(
+                result.events['tx.hash'][0],
+                rpc,
+            );
+            const { body } = decodeTxRaw(indexedTx.tx);
+            messageAction = body.messages[0].typeUrl;
+        }
+        if (this.listMessageAction.includes(messageAction)) {
+            let log = result.data.value.TxResult.result.log;
+            let chain = this.listChain.find((x) => x.websocket == websocket);
+            let chainId = chain.id;
+
+            let message = {
+                recipient: '',
+                sender: '',
+                denom: '',
+                amount: 0,
+            };
             try {
-                messageAction = response.result.events['message.action'][0];
-            } catch (error) {
-                this._logger.error('Error get message action', error);
-            }
-            if (this.listMessageAction.includes(messageAction)) {
-                // let listAddress = []
-                let sender = response.result.events['coin_spent.spender'] ?? [];
-                let receiver =
-                    response.result.events['coin_received.receiver'] ?? [];
-                // let fee = response.result.events['tx.fee'][0].match(/\d+/g)[0];
-                let log = response.result.data.value.TxResult.result.log;
-                let chain = this.listChain.find((x) => x.websocket == source);
-                let chainId = chain.id;
+                log = JSON.parse(log)[0].events;
 
+                let attributes = log.find(
+                    (x) => x.type == 'transfer',
+                ).attributes;
 
-                // console.log('response: ', JSON.stringify(response.result.events));
-                // let rawLog = logs.parseRawLog(response.result);
-                // console.log(rawLog);
-                // const amountAttr = logs.findAttribute(
-                //     logs.parseRawLog(result.rawLog),
-                //     'transfer',
-                //     'amount',
-                // );
-
-                //
-
-                // [0].events
-                let message = {
-                    recipient: '',
-                    sender: '',
-                    denom: '',
-                    amount: 0,
+                message = {
+                    recipient: attributes.find((x) => x.key == 'recipient')
+                        .value,
+                    sender: attributes.find((x) => x.key == 'sender').value,
+                    denom: attributes
+                        .find((x) => x.key == 'amount')
+                        .value.match(/[a-zA-Z]+/g)[0],
+                    amount: attributes
+                        .find((x) => x.key == 'amount')
+                        .value.match(/\d+/g)[0],
                 };
-                try {
-                    log = JSON.parse(log)[0].events;
-
-                    let attributes = log.find(
-                        (x) => x.type == 'transfer',
-                    ).attributes;
-                    // let param = this.findAttribute(log, 'transfer', 'recipient');
-                    // console.log('param: ', param);
-
-                    message = {
-                        recipient: attributes.find((x) => x.key == 'recipient')
-                            .value,
-                        sender: attributes.find((x) => x.key == 'sender').value,
-                        denom: attributes
-                            .find((x) => x.key == 'amount')
-                            .value.match(/[a-zA-Z]+/g)[0],
-                        amount: attributes
-                            .find((x) => x.key == 'amount')
-                            .value.match(/\d+/g)[0],
-                    };
-                } catch (error) {
-                    this._logger.error('this is error transaction');
-                    this._logger.error(error);
-                    message.sender = response.result.events['transfer.sender'][0];
-                    message.recipient =
-                        response.result.events['transfer.recipient'][0];
-                    message.denom =
-                        response.result.events['transfer.amount'][0].match(
-                            /[a-zA-Z]+/g,
-                        )[0];
-                    message.amount =
-                        response.result.events['transfer.amount'][0].match(
-                            /\d+/g,
-                        )[0];
-                }
-
-                // let listAddress = [...sender, ...receiver];
-                // if (listAddress.length > 0) {
-                //     let checkExistsSafeAddress =
-                //         await this.safeRepository.checkExistsSafeAddress(
-                //             listAddress,
-                //         );
-                // }
-
-                // console.log("chainId", chainId)
-                const existSafe = await this.safeRepository.checkExistsSafeAddress([
-                    message.sender,
-                    message.recipient,
-                ]);
-                if (
-                    // true ||
-                    // chain.safeAddresses.includes(message.sender) ||
-                    // chain.safeAddresses.includes(message.recipient) ||
-                    existSafe.length !== 0
-                ) {
-                    let auraTx = {
-                        code: response.result.data.value.TxResult.result.code ?? 0,
-                        codeSpace:
-                            response.result.data.value.TxResult.result.codespace ??
-                            '',
-                        data: '',
-                        gasUsed:
-                            response.result.data.value.TxResult.result.gas_used ??
-                            0,
-                        gasWanted:
-                            response.result.data.value.TxResult.result.gas_wanted ??
-                            0,
-                        fee: response.result.events['tx.fee'][0].match(/\d+/g)[0] ?? 0,
-                        height: response.result.events['tx.height'][0],
-                        info: '',
-                        logs: '',
-                        rawLogs: response.result.data.value.TxResult.result.log,
-                        tx: '',
-                        txHash: response.result.events['tx.hash'][0],
-                        timeStamp: response.result.data.value.TxResult.result.timeStamp ?? null,
-                        chainId: chainId,
-                        fromAddress: message.sender,
-                        toAddress: message.recipient,
-                        amount: message.amount,
-                        denom: message.denom,
-                    };
-                    // let result = await this.auraTxRepository.findAll();
-                    this._logger.log('insert to db');
-                    this._logger.debug(response);
-                    await this.auraTxRepository.insertBulkTransaction([auraTx]);
-                    this._logger.log(auraTx.txHash, 'TxHash being synced');
-                } else {
-                    this._logger.log('not safe address');
-                }
-            } else {
-                this._logger.error('Unwanted message action');
+            } catch (error) {
+                this._logger.error('this is error transaction');
+                this._logger.error(error);
+                message.sender = result.events['transfer.sender'][0];
+                message.recipient = result.events['transfer.recipient'][0];
+                message.denom =
+                    result.events['transfer.amount'][0].match(/[a-zA-Z]+/g)[0];
+                message.amount =
+                    result.events['transfer.amount'][0].match(/\d+/g)[0];
             }
+
+            const existSafe = await this.safeRepository.checkExistsSafeAddress([
+                message.sender,
+                message.recipient,
+            ]);
+            if (existSafe.length !== 0) {
+                let auraTx = {
+                    code: result.data.value.TxResult.result.code ?? 0,
+                    codeSpace:
+                        result.data.value.TxResult.result.codespace ?? '',
+                    data: '',
+                    gasUsed: result.data.value.TxResult.result.gas_used ?? 0,
+                    gasWanted:
+                        result.data.value.TxResult.result.gas_wanted ?? 0,
+                    fee: result.events['tx.fee'][0].match(/\d+/g)[0] ?? 0,
+                    height: result.events['tx.height'][0],
+                    info: '',
+                    logs: '',
+                    rawLogs: result.data.value.TxResult.result.log,
+                    tx: '',
+                    txHash: result.events['tx.hash'][0],
+                    timeStamp:
+                        result.data.value.TxResult.result.timeStamp ?? null,
+                    chainId: chainId,
+                    fromAddress: message.sender,
+                    toAddress: message.recipient,
+                    amount: message.amount,
+                    denom: message.denom,
+                };
+                // let result = await this.auraTxRepository.findAll();
+                this._logger.log('insert to db');
+                this._logger.debug(response);
+                await this.auraTxRepository.insertBulkTransaction([auraTx]);
+                this._logger.log(auraTx.txHash, 'TxHash being synced');
+            } else {
+                this._logger.log('not safe address');
+            }
+        } else {
+            this._logger.error('Unwanted message action');
         }
     }
 
@@ -388,7 +324,12 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         let buffer = Buffer.from(message);
         let response = JSON.parse(buffer.toString());
         if (response?.result && Object.keys(response.result).length) {
-
         }
+    }
+
+    async searchTxRest(txHash: string, rpc: string) {
+        this._logger.log('Search in rest... txHash: ' + txHash);
+        const client = await StargateClient.connect(rpc);
+        return client.getTx(txHash);
     }
 }
