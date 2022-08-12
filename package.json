@@ -1,10 +1,13 @@
 {
-  "name": "multisig-sync",
+  "name": "pyxis-safe-sync",
   "version": "0.0.1",
   "description": "",
-  "author": "",
+  "author": {
+    "name": "Aura Network",
+    "email": "admin@aura.network"
+  },
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "nest build",
