@@ -6,8 +6,6 @@ import {
 } from '@cosmjs/stargate';
 import { HttpService } from '@nestjs/axios';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { catchError, firstValueFrom, retry, tap, throwError } from 'rxjs';
 import { MESSAGE_ACTION } from 'src/common/constants/app.constant';
 import { REPOSITORY_INTERFACE } from 'src/module.config';
 import { IAuraTransactionRepository } from 'src/repositories/iaura-tx.repository';
@@ -22,7 +20,13 @@ export class SyncRestService implements ISyncRestService {
     private listChain;
     private listSafeAddress;
     private listChainIdSubscriber;
-    private listMessageAction = [MESSAGE_ACTION.MSG_EXECUTE_CONTRACT, MESSAGE_ACTION.MSG_INSTANTIATE_CONTRACT, MESSAGE_ACTION.MSG_MIGRATE_CONTRACT, MESSAGE_ACTION.MSG_SEND, MESSAGE_ACTION.MSG_STORE_CODE];
+    private listMessageAction = [
+        MESSAGE_ACTION.MSG_EXECUTE_CONTRACT,
+        MESSAGE_ACTION.MSG_INSTANTIATE_CONTRACT,
+        MESSAGE_ACTION.MSG_MIGRATE_CONTRACT,
+        MESSAGE_ACTION.MSG_SEND,
+        MESSAGE_ACTION.MSG_STORE_CODE,
+    ];
     private config: ConfigService = new ConfigService();
     constructor(
         private configService: ConfigService,
@@ -39,10 +43,10 @@ export class SyncRestService implements ISyncRestService {
         this._logger.log(
             '============== Constructor Sync Rest Service ==============',
         );
-        this.listChainIdSubscriber = JSON.parse(
-            this.configService.get('CHAIN_SUBCRIBE'),
-        );
-        this.initSyncRest();
+        // this.listChainIdSubscriber = JSON.parse(
+        //     this.configService.get('CHAIN_SUBCRIBE'),
+        // );
+        // this.initSyncRest();
     }
 
     async initSyncRest() {
@@ -68,7 +72,9 @@ export class SyncRestService implements ISyncRestService {
     }
 
     async getLatestBlockHeight(chainId) {
-        const lastHeight = await this.auraTxRepository.getLatestBlockHeight(chainId);
+        const lastHeight = await this.auraTxRepository.getLatestBlockHeight(
+            chainId,
+        );
         return lastHeight;
     }
 
@@ -109,11 +115,13 @@ export class SyncRestService implements ISyncRestService {
                 ).attributes;
                 let messageAction;
                 try {
-                    messageAction = messageType.find((x) => x.key == 'action').value;
+                    messageAction = messageType.find(
+                        (x) => x.key == 'action',
+                    ).value;
                 } catch (error) {
                     this._logger.error('Error get message action', error);
                 }
-                if(this.listMessageAction.includes(messageAction)) {
+                if (this.listMessageAction.includes(messageAction)) {
                     let attributes = log.find(
                         (x) => x.type == 'transfer',
                     ).attributes;
@@ -167,15 +175,19 @@ export class SyncRestService implements ISyncRestService {
 
     // @Cron(CronExpression.EVERY_5_SECONDS)
     async findTxByHash(network) {
-        if(!network) 
-            network = JSON.parse(this.config.get("CHAIN_SUBCRIBE"));
-        const chain = await this.chainRepository.findChainByChainId([network.chainId ? network.chainId : network[0]]);
+        if (!network) network = JSON.parse(this.config.get('CHAIN_SUBCRIBE'));
+        const chain = await this.chainRepository.findChainByChainId([
+            network.chainId ? network.chainId : network[0],
+        ]);
         let pendingTransations = [];
         const client = await StargateClient.connect(chain[0].rpc);
-        const listPendingTx = await this.multisigTransactionRepository.findPendingMultisigTransaction(chain[0].id);
-        if(listPendingTx.length > 0) {
-            for(let i = 0; i < listPendingTx.length; i++) {
-                console.log(listPendingTx[i].txHash)
+        const listPendingTx =
+            await this.multisigTransactionRepository.findPendingMultisigTransaction(
+                chain[0].id,
+            );
+        if (listPendingTx.length > 0) {
+            for (let i = 0; i < listPendingTx.length; i++) {
+                console.log(listPendingTx[i].txHash);
                 const tx = await client.getTx(listPendingTx[i].txHash);
                 console.log(tx);
 
@@ -221,7 +233,7 @@ export class SyncRestService implements ISyncRestService {
                     //     )[0];
                 }
 
-                if(tx) {
+                if (tx) {
                     let auraTx = {
                         code: tx.code ?? 0,
                         data: '',
@@ -247,9 +259,9 @@ export class SyncRestService implements ISyncRestService {
         }
         // Bulk insert transactions into DB
         if (pendingTransations.length > 0)
-        await this.auraTxRepository.insertBulkTransaction(
-            pendingTransations,
-        );
+            await this.auraTxRepository.insertBulkTransaction(
+                pendingTransations,
+            );
         client.disconnect();
     }
 }

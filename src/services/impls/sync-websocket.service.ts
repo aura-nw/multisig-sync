@@ -37,10 +37,10 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         this._logger.log(
             '============== Constructor Sync Websocket Service ==============',
         );
-        this.listChainIdSubscriber = JSON.parse(
-            this.configService.get('CHAIN_SUBCRIBE'),
-        );
-        this.startSyncWebsocket();
+        // this.listChainIdSubscriber = JSON.parse(
+        //     this.configService.get('CHAIN_SUBCRIBE'),
+        // );
+        // this.startSyncWebsocket();
     }
 
     async addNewAddressOnNetwork(

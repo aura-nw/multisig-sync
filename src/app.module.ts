@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bull';
 import {
     ENTITIES_CONFIG,
     REPOSITORY_INTERFACE,
@@ -11,11 +12,11 @@ import { ConfigService } from './shared/services/config.service';
 import { AuraTxRepository } from './repositories/impls/aura-tx.repository';
 import { SafeRepository } from './repositories/impls/safe.repository';
 import { ChainRepository } from './repositories/impls/chain.repository';
-import { ScheduleModule } from '@nestjs/schedule';
 import { SyncRestService } from './services/impls/sync-rest.service';
 import { HttpModule } from '@nestjs/axios';
 import { AppController } from './controllers/websocket.controller';
 import { MultisigTransactionRepository } from './repositories/impls/multisig-transaction.repository';
+import { SyncTxModule } from './pending-tx/pending-tx.module';
 const entities = [
     ENTITIES_CONFIG.AURA_TX,
     ENTITIES_CONFIG.SAFE,
@@ -34,8 +35,17 @@ const controllers = [AppController];
             inject: [ConfigService],
         }),
         TypeOrmModule.forFeature([...entities]),
-        ScheduleModule.forRoot(),
         HttpModule,
+        BullModule.forRootAsync({
+            useFactory: () => ({
+                redis: {
+                    host: 'localhost',
+                    port: 6379,
+                },
+                prefix: 'pyxis-safe',
+            }),
+        }),
+        SyncTxModule,
     ],
     controllers: [...controllers],
     providers: [
@@ -62,7 +72,7 @@ const controllers = [AppController];
         {
             provide: REPOSITORY_INTERFACE.IMULTISIG_TRANSACTION_REPOSITORY,
             useClass: MultisigTransactionRepository,
-        }
+        },
     ],
 })
 export class AppModule {}
