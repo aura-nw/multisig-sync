@@ -234,7 +234,7 @@ export class SyncRestService implements ISyncRestService {
                         tx: '',
                         txHash: tx.hash,
                         timeStamp: null,
-                        chainId: network.chainId,
+                        chainId: network.id,
                         fromAddress: message.sender,
                         toAddress: message.recipient,
                         amount: message.amount,
