@@ -5,5 +5,5 @@ export interface ISafeRepository extends IBaseRepository {
 
     findSafeNotInListAddress(listAddress: string[]);
 
-    findSafeInListInternalChainId(listInternalChainId: string[]);
+    findSafeByInternalChainId(internalChainId: string);
 }

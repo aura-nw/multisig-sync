@@ -22,7 +22,7 @@ export class SyncRestService implements ISyncRestService {
     private listChain;
     private listSafeAddress;
     private listChainIdSubscriber;
-    private listMessageAction = [MESSAGE_ACTION.MSG_EXECUTE_CONTRACT, MESSAGE_ACTION.MSG_INSTANTIATE_CONTRACT, MESSAGE_ACTION.MSG_MIGRATE_CONTRACT, MESSAGE_ACTION.MSG_SEND, MESSAGE_ACTION.MSG_STORE_CODE];
+    private listMessageAction = [MESSAGE_ACTION.MSG_EXECUTE_CONTRACT, MESSAGE_ACTION.MSG_INSTANTIATE_CONTRACT, MESSAGE_ACTION.MSG_MULTI_SEND, MESSAGE_ACTION.MSG_SEND, MESSAGE_ACTION.MSG_STORE_CODE];
     private config: ConfigService = new ConfigService();
     constructor(
         private configService: ConfigService,
@@ -47,9 +47,10 @@ export class SyncRestService implements ISyncRestService {
 
     async initSyncRest() {
         let listSafe = await this.safeRepository.findAll();
-        this.listChain = await this.chainRepository.findChainByChainId(
-            this.listChainIdSubscriber,
-        );
+        // this.listChain = await this.chainRepository.findChainByChainId(
+        //     this.listChainIdSubscriber,
+        // );
+        this.listChain = await this.chainRepository.findAll();
         //add address for each chain
         listSafe.forEach((safe) => {
             let chainId = safe.chainId;
@@ -62,7 +63,9 @@ export class SyncRestService implements ISyncRestService {
         });
 
         for (let network of this.listChain) {
-            this.syncFromNetwork(network, network.safeAddresses);
+            if(network.safeAddress !== undefined) {
+                this.syncFromNetwork(network, network.safeAddresses);
+            }
             this.findTxByHash(network);
         }
     }
@@ -169,10 +172,10 @@ export class SyncRestService implements ISyncRestService {
     async findTxByHash(network) {
         if(!network) 
             network = JSON.parse(this.config.get("CHAIN_SUBCRIBE"));
-        const chain = await this.chainRepository.findChainByChainId([network.chainId ? network.chainId : network[0]]);
+        const chain = await this.chainRepository.findChainByChainId(network.chainId ? network.chainId : network[0]);
         let pendingTransations = [];
-        const client = await StargateClient.connect(chain[0].rpc);
-        const listPendingTx = await this.multisigTransactionRepository.findPendingMultisigTransaction(chain[0].id);
+        const client = await StargateClient.connect(chain.rpc);
+        const listPendingTx = await this.multisigTransactionRepository.findPendingMultisigTransaction(chain.id);
         if(listPendingTx.length > 0) {
             for(let i = 0; i < listPendingTx.length; i++) {
                 console.log(listPendingTx[i].txHash)
@@ -234,7 +237,7 @@ export class SyncRestService implements ISyncRestService {
                         tx: '',
                         txHash: tx.hash,
                         timeStamp: null,
-                        chainId: network.chainId,
+                        chainId: network.id,
                         fromAddress: message.sender,
                         toAddress: message.recipient,
                         amount: message.amount,
