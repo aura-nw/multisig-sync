@@ -35,12 +35,12 @@ export class SafeRepository extends BaseRepository implements ISafeRepository {
         return res;
     }
 
-    async findSafeInListInternalChainId(listInternalChainId: string[]) {
+    async findSafeByInternalChainId(internalChainId: string) {
         let query = this.repos.createQueryBuilder('safe');
         query = query
-            .select('safe.safeAddress as safeAddress, safe.chainId as chainId')
-            .where('safe.internalChainId IN (:...listInternalChainId)', {
-                listInternalChainId: listInternalChainId,
+            .select('safe.safeAddress as safeAddress, safe.internalChainId as internalChainId')
+            .where('safe.internalChainId = :internalChainId', {
+                internalChainId,
             });
         let res = await query.getRawMany();
         return res;

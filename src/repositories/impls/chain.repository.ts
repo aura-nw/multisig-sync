@@ -18,16 +18,16 @@ export class ChainRepository
         super(repos);
     }
 
-    async findChainByChainId(listChainId: string[]) {
+    async findChainByChainId(chainId: string) {
         let query = this.repos.createQueryBuilder('chain');
         query = query
             .select(
                 'chain.id as id, chain.chainId as chainId, chain.name as chainName, chain.websocket as websocket, chain.rpc as rpc, chain.denom as denom',
             )
-            .where('chain.chainId IN (:...listChainId)', {
-                listChainId: listChainId,
+            .where('chain.chainId = :chainId', {
+                chainId,
             });
-        let res = await query.getRawMany();
+        let res = await query.getRawOne();
         return res;
     }
 }

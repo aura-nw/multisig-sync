@@ -3,7 +3,12 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-    const app = await NestFactory.create(AppModule);
+    let app;
+    try {
+        app = await NestFactory.create(AppModule);
+    } catch (error) {
+        console.log('Error in main.ts', error);
+    }
 
     // setup swagger
     const config = new DocumentBuilder()
