@@ -23,6 +23,10 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         MESSAGE_ACTION.MSG_MIGRATE_CONTRACT,
         MESSAGE_ACTION.MSG_SEND,
         MESSAGE_ACTION.MSG_STORE_CODE,
+        MESSAGE_ACTION.DELEGATE,
+        MESSAGE_ACTION.REDELEGATE,
+        MESSAGE_ACTION.UNDELEGATE,
+        MESSAGE_ACTION.REWARD,
     ];
 
     constructor(
@@ -153,9 +157,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     }
     async syncFromNetwork(network) {
         this._logger.log('syncFromNetwork');
-        this._logger.log(JSON.stringify(network));
-        // this._logger.debug(JSON.stringify(network));
-        let websocketUrl = network.websocket;
+        // this._logger.log(JSON.stringify(network));
+        let websocketUrl = 'wss://evmos.test.rpc.coldyvalidator.net/websocket';
+        // let websocketUrl = network.websocket;
         let self = this;
         let websocket = new WebSocket(websocketUrl);
         websocket.on('open', function () {
