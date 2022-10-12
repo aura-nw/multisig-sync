@@ -157,9 +157,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     }
     async syncFromNetwork(network) {
         this._logger.log('syncFromNetwork');
-        // this._logger.log(JSON.stringify(network));
-        let websocketUrl = 'wss://evmos.test.rpc.coldyvalidator.net/websocket';
-        // let websocketUrl = network.websocket;
+        this._logger.log(JSON.stringify(network));
+        // this._logger.debug(JSON.stringify(network));
+        let websocketUrl = network.websocket;
         let self = this;
         let websocket = new WebSocket(websocketUrl);
         websocket.on('open', function () {
