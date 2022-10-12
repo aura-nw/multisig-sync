@@ -786,9 +786,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
 
     async startSyncWebsocket() {
         this._logger.log('syncFromNetwork');
-        // this._logger.log(JSON.stringify(network));
-        let websocketUrl = 'wss://evmos.test.rpc.coldyvalidator.net/websocket';
-        // let websocketUrl = network.websocket;
+        this._logger.log(JSON.stringify(network));
+        // this._logger.debug(JSON.stringify(network));
+        let websocketUrl = network.websocket;
         let self = this;
         this.chain = await this.chainRepository.findChainByChainId(this.chainIdSubscriber);
         if (this.chain.rest.slice(-1) !== '/') this.chain.rest = this.chain.rest + '/';
