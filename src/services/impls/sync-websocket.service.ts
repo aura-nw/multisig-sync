@@ -25,6 +25,10 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         MESSAGE_ACTION.MSG_MULTI_SEND,
         MESSAGE_ACTION.MSG_SEND,
         MESSAGE_ACTION.MSG_STORE_CODE,
+        MESSAGE_ACTION.DELEGATE,
+        MESSAGE_ACTION.REDELEGATE,
+        MESSAGE_ACTION.UNDELEGATE,
+        MESSAGE_ACTION.REWARD,
     ];
     private listTx = [
         {
@@ -782,7 +786,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
 
     async startSyncWebsocket() {
         this._logger.log('syncFromNetwork');
-        let websocketUrl = this.websocketSubscriber;
+        // this._logger.log(JSON.stringify(network));
+        let websocketUrl = 'wss://evmos.test.rpc.coldyvalidator.net/websocket';
+        // let websocketUrl = network.websocket;
         let self = this;
         this.chain = await this.chainRepository.findChainByChainId(this.chainIdSubscriber);
         if (this.chain.rest.slice(-1) !== '/') this.chain.rest = this.chain.rest + '/';
