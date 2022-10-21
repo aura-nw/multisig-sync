@@ -15,4 +15,15 @@ export enum MESSAGE_ACTION {
     MSG_INSTANTIATE_CONTRACT = '/cosmwasm.wasm.v1.MsgInstantiateContract',
     MSG_EXECUTE_CONTRACT = '/cosmwasm.wasm.v1.MsgExecuteContract',
     MSG_STORE_CODE = '/cosmwasm.wasm.v1.MsgStoreCode',
+    MSG_DELEGATE = '/cosmos.staking.v1beta1.MsgDelegate',
+	MSG_REDELEGATE = '/cosmos.staking.v1beta1.MsgBeginRedelegate',
+	MSG_UNDELEGATE = '/cosmos.staking.v1beta1.MsgUndelegate',
+    MSG_WITHDRAW_REWARDS = '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
+}
+
+export enum CONST_CHAR {
+    COIN_RECEIVED = 'coin_received',
+    COIN_SPENT = 'coin_spent',
+    SPENDER = 'spender',
+    AMOUNT = 'amount',
 }

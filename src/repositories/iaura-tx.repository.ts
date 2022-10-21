@@ -9,7 +9,7 @@ export interface IAuraTransactionRepository extends IBaseRepository {
 
     /**
      * Insert Transactions that was lost when service died
-     * @param lostTransations
+     * @param listTransations
      */
     insertBulkTransaction(listTransations: any[]);
 }
