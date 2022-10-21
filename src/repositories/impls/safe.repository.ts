@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaseRepository } from './base.repository';
 import { ObjectLiteral, Repository } from 'typeorm';
-import { ENTITIES_CONFIG } from 'src/module.config';
+import { ENTITIES_CONFIG } from '../../module.config';
 import { ISafeRepository } from '../isafe.repository';
 
 @Injectable()
