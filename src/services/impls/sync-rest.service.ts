@@ -56,7 +56,7 @@ export class SyncRestService implements ISyncRestService {
         this.syncRest();
     }
 
-    // @Cron(CronExpression.EVERY_10_SECONDS)
+    @Cron(CronExpression.EVERY_10_SECONDS)
     async syncRest() {
         this.chain = await this.chainRepository.findChainByChainId(this.listChainIdSubscriber[0]);
         this.listSafeAddress = await this.safeRepository.findSafeByInternalChainId(this.chain.id);
@@ -86,12 +86,12 @@ export class SyncRestService implements ISyncRestService {
             let listQueries: any[] = [], syncTxs: any[] = [], syncTxMessages: any[] = [];
             const client = await StargateClient.connect(network.rpc);
             // Get the current block height received from websocket
-            // let height = (await client.getBlock()).header.height;
-            let height = 2215510;
+            let height = (await client.getBlock()).header.height;
+            // let height = 2215510;
             // Get the last block height from cache (if exists) minus 2 blocks
             const cacheLastHeight: Number = await this.cacheHeight.getItem<Number>(this.cacheKey);
-            // let lastHeight = (cacheLastHeight ? cacheLastHeight : (await this.getLatestBlockHeight(network.id))) - 2;
-            let lastHeight = height - 2;
+            let lastHeight = (cacheLastHeight ? cacheLastHeight : (await this.getLatestBlockHeight(network.id))) - 2;
+            // let lastHeight = height - 20;
             this._logger.log(`Last height from cache: ${cacheLastHeight} with key ${this.cacheKey}`);
             // set cache last height to the latest block height
             await this.cacheHeight.setItem(this.cacheKey, height, { isCachedForever: true });
@@ -215,6 +215,10 @@ export class SyncRestService implements ISyncRestService {
                     let txMsg = txMessage.find(tm => listSafes.find(safe => safe === tm.toAddress
                         || safe === tm.fromAddress));
                     if (!txMsg) syncTxs.splice(index, 1);
+                    else {
+                        syncTxs[index].toAddress = txMsg.toAddress;
+                        syncTxs[index].fromAddress = txMsg.fromAddress;
+                    }
                 });
                 syncTxMessages = syncTxMessages.filter(txMessage =>
                     txMessage.find(tm => listSafes.find(safe => safe === tm.toAddress
