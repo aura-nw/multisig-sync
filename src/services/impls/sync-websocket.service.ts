@@ -924,6 +924,10 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 let txMsg = txMessage.find(tm => existSafes.find(safe => safe.safeAddress === tm.toAddress
                     || safe.safeAddress === tm.fromAddress));
                 if (!txMsg) syncTxs.splice(index, 1);
+                else {
+                    syncTxs[index].toAddress = txMsg.toAddress;
+                    syncTxs[index].fromAddress = txMsg.fromAddress;
+                }
             });
             syncTxMessages = syncTxMessages.filter(txMessage =>
                 txMessage.find(tm => existSafes.find(safe => safe.safeAddress === tm.toAddress
