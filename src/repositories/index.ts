@@ -3,4 +3,4 @@ export * from './ibase.repository';
 export * from './ichain.repository';
 export * from './imultisig-transaction.repository';
 export * from './isafe.repository';
-export * from './itx-message.repository';
+export * from './imessage.repository';
