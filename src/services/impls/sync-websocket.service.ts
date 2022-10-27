@@ -25,6 +25,10 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         MESSAGE_ACTION.MSG_MULTI_SEND,
         MESSAGE_ACTION.MSG_SEND,
         MESSAGE_ACTION.MSG_STORE_CODE,
+        MESSAGE_ACTION.MSG_DELEGATE,
+        MESSAGE_ACTION.MSG_REDELEGATE,
+        MESSAGE_ACTION.MSG_UNDELEGATE,
+        MESSAGE_ACTION.MSG_WITHDRAW_REWARDS,
     ];
     private listTx = [
         {
