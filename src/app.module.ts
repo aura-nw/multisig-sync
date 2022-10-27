@@ -16,13 +16,13 @@ import { SyncRestService } from './services/impls/sync-rest.service';
 import { HttpModule } from '@nestjs/axios';
 import { AppController } from './controllers/websocket.controller';
 import { MultisigTransactionRepository } from './repositories/impls/multisig-transaction.repository';
-import { TxMessageRepository } from './repositories/impls/tx-message.repository';
+import { MessageRepository } from './repositories/impls/message.repository';
 const entities = [
     ENTITIES_CONFIG.AURA_TX,
     ENTITIES_CONFIG.SAFE,
     ENTITIES_CONFIG.CHAIN,
     ENTITIES_CONFIG.MULTISIG_TRANSACTION,
-    ENTITIES_CONFIG.TX_MESSAGE
+    ENTITIES_CONFIG.MESSAGE
 ];
 const controllers = [AppController];
 // @Global()
@@ -68,8 +68,8 @@ const controllers = [AppController];
             useClass: MultisigTransactionRepository,
         },
         {
-            provide: REPOSITORY_INTERFACE.ITX_MESSAGE_REPOSITORY,
-            useClass: TxMessageRepository,
+            provide: REPOSITORY_INTERFACE.IMESSAGE_REPOSITORY,
+            useClass: MessageRepository,
         }
     ],
 })

@@ -10,9 +10,9 @@ import {
     IAuraTransactionRepository,
     IChainRepository,
     ISafeRepository,
-    ITxMessageRepository
+    IMessageRepository
 } from '../../repositories';
-import { AuraTx, TxMessage } from '../../entities';
+import { AuraTx, Message } from '../../entities';
 @Injectable()
 export class SyncWebsocketService implements ISyncWebsocketService {
     private readonly _logger = new Logger(SyncWebsocketService.name);
@@ -773,8 +773,8 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         private safeRepository: ISafeRepository,
         @Inject(REPOSITORY_INTERFACE.ICHAIN_REPOSITORY)
         private chainRepository: IChainRepository,
-        @Inject(REPOSITORY_INTERFACE.ITX_MESSAGE_REPOSITORY)
-        private txMessageRepository: ITxMessageRepository,
+        @Inject(REPOSITORY_INTERFACE.IMESSAGE_REPOSITORY)
+        private messageRepository: IMessageRepository,
     ) {
         this._logger.log(
             '============== Constructor Sync Websocket Service ==============',
@@ -826,40 +826,40 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                     this.listMessageAction.includes(msg['@type']) && txs.tx_response.code === 0
                 ).map(async (msg, index) => {
                     const type = msg['@type'];
-                    let txMessage = new TxMessage();
+                    let txMessage = new Message();
                     switch (type) {
                         case MESSAGE_ACTION.MSG_SEND:
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_SEND;
                             txMessage.fromAddress = msg.from_address;
                             txMessage.toAddress = msg.to_address;
-                            txMessage.amount = parseInt(msg.amount[0].amount, 10);
-                            txMessage.denom = msg.amount[0].denom;
+                            txMessage.amount = msg.amount[0].amount;
                             listTxMessages.push(txMessage);
                             break;
                         case MESSAGE_ACTION.MSG_MULTI_SEND:
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_MULTI_SEND;
                             txMessage.fromAddress = msg.inputs[0].address;
                             msg.outputs.map(output => {
                                 txMessage.toAddress = output.address;
-                                txMessage.amount = parseInt(output.coins[0].amount, 10);
-                                txMessage.denom = output.coins[0].denom;
+                                txMessage.amount = output.coins[0].amount;
                                 listTxMessages.push(txMessage);
                             });
                             break;
                         case MESSAGE_ACTION.MSG_DELEGATE:
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_DELEGATE;
                             txMessage.fromAddress = msg.validator_address;
                             txMessage.toAddress = msg.delegator_address;
-                            txMessage.denom = msg.amount.denom;
                             let coin_received_delegate = txs.tx_response.logs[index].events
                                 .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
                             if (coin_received_delegate && coin_received_delegate.find(x => x.value === msg.delegator_address)) {
                                 const index_reward = coin_received_delegate.findIndex(x => x.value === msg.delegator_address);
                                 const claimed_reward = coin_received_delegate[index_reward + 1].value.match(/\d+/g)[0];
-                                txMessage.amount = parseInt(claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward, 10);
+                                txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
                                 listTxMessages.push(txMessage);
                             }
                             break;
                         case MESSAGE_ACTION.MSG_REDELEGATE:
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_REDELEGATE;
                             txMessage.toAddress = msg.delegator_address;
-                            txMessage.denom = msg.amount.denom;
                             let valSrcAddr = msg.validator_src_address;
                             let valDstAddr = msg.validator_dst_address;
                             let coin_received_redelegate = txs.tx_response.logs[index].events
@@ -868,7 +868,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                                 const paramVal = this.configService.get('PARAM_GET_VALIDATOR') + valSrcAddr;
                                 let resultVal: any = await axios.default.get(this.chain.rest + paramVal);
                                 let redelegate_claimed_reward = coin_received_redelegate.find(x => x.key === CONST_CHAR.AMOUNT);
-                                txMessage.amount = parseInt(redelegate_claimed_reward.value.match(/\d+/g)[0], 10);
+                                txMessage.amount = redelegate_claimed_reward.value.match(/\d+/g)[0];
                                 if (Number(resultVal.data.validator.commission.commission_rates.rate) !== 1) {
                                     txMessage.fromAddress = valSrcAddr;
                                     listTxMessages.push(txMessage);
@@ -878,33 +878,33 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                                 }
                                 if (coin_received_redelegate.length > 2) {
                                     txMessage.fromAddress = valDstAddr;
-                                    txMessage.amount = parseInt(coin_received_redelegate[3].value.match(/\d+/g)[0], 10);
+                                    txMessage.amount = coin_received_redelegate[3].value.match(/\d+/g)[0];
                                     listTxMessages.push(txMessage);
                                 }
                             }
                             break;
                         case MESSAGE_ACTION.MSG_UNDELEGATE:
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_UNDELEGATE;
                             txMessage.fromAddress = msg.validator_address;
                             txMessage.toAddress = msg.delegator_address;
-                            txMessage.denom = msg.amount.denom;
                             let coin_received_unbond = txs.tx_response.logs[index].events
                                 .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
                             if (coin_received_unbond && coin_received_unbond.find(x => x.value === msg.delegator_address)) {
                                 const index_reward = coin_received_unbond.findIndex(x => x.value === msg.delegator_address);
                                 const claimed_reward = coin_received_unbond[index_reward + 1].value.match(/\d+/g)[0];
-                                txMessage.amount = parseInt(claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward, 10);
+                                txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
                                 listTxMessages.push(txMessage);
                             }
                             break;
                         case MESSAGE_ACTION.MSG_WITHDRAW_REWARDS:
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
                             txMessage.fromAddress = msg.validator_address;
                             txMessage.toAddress = msg.delegator_address;
-                            txMessage.denom = this.chain.denom;
                             let coin_received_claim = txs.tx_response.logs[index].events
                                 .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
                             if (coin_received_claim && coin_received_claim.find(x => x.value === msg.delegator_address)) {
-                                txMessage.amount = parseInt(coin_received_claim.find(x => x.key = CONST_CHAR.AMOUNT)
-                                    .value.match(/\d+/g)[0], 10);
+                                txMessage.amount = coin_received_claim.find(x => x.key = CONST_CHAR.AMOUNT)
+                                    .value.match(/\d+/g)[0];
                                 listTxMessages.push(txMessage);
                             }
                             break;
@@ -920,6 +920,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                     auraTx.gasUsed = parseInt(txs.tx_response.gas_used, 10);
                     auraTx.fee = parseInt(txs.tx.auth_info.fee.amount[0].amount, 10);
                     auraTx.rawLogs = txs.tx_response.raw_log;
+                    auraTx.denom = this.chain.denom;
                     auraTx.timeStamp = new Date(txs.tx_response.timestamp);
                     auraTx.internalChainId = this.chain.id;
                     syncTxs.push(auraTx);
@@ -944,8 +945,8 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             if (syncTxs.length > 0) {
                 let txs = await this.auraTxRepository.insertBulkTransaction(syncTxs);
                 let id = txs.insertId;
-                syncTxMessages.map(txMessage => txMessage.map(tm => tm.txId = id++));
-                await this.txMessageRepository.insertBulkTransaction(syncTxMessages);
+                syncTxMessages.map(txMessage => txMessage.map(tm => tm.auraTxId = id++));
+                await this.messageRepository.insertBulkTransaction(syncTxMessages.flat());
             }
         } catch (error) {
             this._logger.error(error);
