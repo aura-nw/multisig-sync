@@ -16,6 +16,8 @@ import {
     IMessageRepository
 } from '../../repositories';
 import { AuraTx, Message } from '../../entities';
+const _ = require('lodash');
+
 @Injectable()
 export class SyncRestService implements ISyncRestService {
     private readonly _logger = new Logger(SyncRestService.name);
@@ -64,8 +66,8 @@ export class SyncRestService implements ISyncRestService {
         this.listSafeAddress.map((safe) => {
             if (this.chain && safe.safeAddress) {
                 if (this.chain['safeAddresses'])
-                    this.chain['safeAddresses'].push(safe.safeAddress);
-                else this.chain['safeAddresses'] = [safe.safeAddress];
+                    this.chain['safeAddresses'].push(safe);
+                else this.chain['safeAddresses'] = [safe];
             }
         });
         if (this.chain.rest.slice(-1) !== '/') this.chain.rest = this.chain.rest + '/';
@@ -84,14 +86,13 @@ export class SyncRestService implements ISyncRestService {
     async syncFromNetwork(network, listSafes) {
         try {
             let listQueries: any[] = [], syncTxs: any[] = [], syncTxMessages: any[] = [];
+            const safes = _.keyBy(listSafes, 'safeAddress');
             const client = await StargateClient.connect(network.rpc);
             // Get the current block height received from websocket
             let height = (await client.getBlock()).header.height;
-            // let height = 2215510;
             // Get the last block height from cache (if exists) minus 2 blocks
             const cacheLastHeight: Number = await this.cacheHeight.getItem<Number>(this.cacheKey);
             let lastHeight = (cacheLastHeight ? cacheLastHeight : (await this.getLatestBlockHeight(network.id))) - 2;
-            // let lastHeight = height - 20;
             this._logger.log(`Last height from cache: ${cacheLastHeight} with key ${this.cacheKey}`);
             // set cache last height to the latest block height
             await this.cacheHeight.setItem(this.cacheKey, height, { isCachedForever: true });
@@ -113,6 +114,7 @@ export class SyncRestService implements ISyncRestService {
                         let txMessage = new Message();
                         switch (type) {
                             case MESSAGE_ACTION.MSG_SEND:
+                                if (!safes[msg.to_address] && !safes[msg.from_address]) break;
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_SEND;
                                 txMessage.fromAddress = msg.from_address;
                                 txMessage.toAddress = msg.to_address;
@@ -122,13 +124,15 @@ export class SyncRestService implements ISyncRestService {
                             case MESSAGE_ACTION.MSG_MULTI_SEND:
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_MULTI_SEND;
                                 txMessage.fromAddress = msg.inputs[0].address;
-                                msg.outputs.map(output => {
-                                    txMessage.toAddress = output.address;
-                                    txMessage.amount = output.coins[0].amount;
-                                    listTxMessages.push(txMessage);
-                                });
+                                msg.outputs.filter(output => safes[msg.inputs[0].address] || safes[output.address])
+                                    .map(output => {
+                                        txMessage.toAddress = output.address;
+                                        txMessage.amount = output.coins[0].amount;
+                                        listTxMessages.push(txMessage);
+                                    });
                                 break;
                             case MESSAGE_ACTION.MSG_DELEGATE:
+                                if (!safes[msg.delegator_address]) break;
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_DELEGATE;
                                 txMessage.fromAddress = msg.validator_address;
                                 txMessage.toAddress = msg.delegator_address;
@@ -142,6 +146,7 @@ export class SyncRestService implements ISyncRestService {
                                 }
                                 break;
                             case MESSAGE_ACTION.MSG_REDELEGATE:
+                                if (!safes[msg.delegator_address]) break;
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_REDELEGATE;
                                 txMessage.toAddress = msg.delegator_address;
                                 let valSrcAddr = msg.validator_src_address;
@@ -168,6 +173,7 @@ export class SyncRestService implements ISyncRestService {
                                 }
                                 break;
                             case MESSAGE_ACTION.MSG_UNDELEGATE:
+                                if (!safes[msg.delegator_address]) break;
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_UNDELEGATE;
                                 txMessage.fromAddress = msg.validator_address;
                                 txMessage.toAddress = msg.delegator_address;
@@ -181,6 +187,7 @@ export class SyncRestService implements ISyncRestService {
                                 }
                                 break;
                             case MESSAGE_ACTION.MSG_WITHDRAW_REWARDS:
+                                if (!safes[msg.delegator_address]) break;
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
                                 txMessage.fromAddress = msg.validator_address;
                                 txMessage.toAddress = msg.delegator_address;
@@ -205,26 +212,14 @@ export class SyncRestService implements ISyncRestService {
                         auraTx.gasUsed = parseInt(res.tx_response.gas_used, 10);
                         auraTx.fee = parseInt(res.tx.auth_info.fee.amount[0].amount, 10);
                         auraTx.rawLogs = res.tx_response.raw_log;
+                        auraTx.fromAddress = listTxMessages[0].fromAddress;
+                        auraTx.toAddress = listTxMessages[0].toAddress;
                         auraTx.denom = network.denom;
                         auraTx.timeStamp = new Date(res.tx_response.timestamp);
                         auraTx.internalChainId = network.id;
                         syncTxs.push(auraTx);
                     }
                 }));
-
-                syncTxMessages.map((txMessage, index) => {
-                    let txMsg = txMessage.find(tm => listSafes.find(safe => safe === tm.toAddress
-                        || safe === tm.fromAddress));
-                    if (!txMsg) syncTxs.splice(index, 1);
-                    else {
-                        syncTxs[index].toAddress = txMsg.toAddress;
-                        syncTxs[index].fromAddress = txMsg.fromAddress;
-                    }
-                });
-                syncTxMessages = syncTxMessages.filter(txMessage =>
-                    txMessage.find(tm => listSafes.find(safe => safe === tm.toAddress
-                        || safe === tm.fromAddress))
-                );
                 this._logger.log('REST Qualified Txs: ' + JSON.stringify(syncTxs));
             }
 
