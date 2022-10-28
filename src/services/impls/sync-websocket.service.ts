@@ -13,6 +13,8 @@ import {
     IMessageRepository
 } from '../../repositories';
 import { AuraTx, Message } from '../../entities';
+const _ = require('lodash');
+
 @Injectable()
 export class SyncWebsocketService implements ISyncWebsocketService {
     private readonly _logger = new Logger(SyncWebsocketService.name);
@@ -84,6 +86,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         let syncTxs: any[] = [], syncTxMessages: any[] = [];
         try {
             let existSafes = await this.safeRepository.findSafeByInternalChainId(this.chain.id);
+            const safes = _.keyBy(existSafes, 'safeAddress');
 
             await Promise.all(listTx.map(async txs => {
                 let listTxMessages: any[] = [];
@@ -94,6 +97,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                     let txMessage = new Message();
                     switch (type) {
                         case MESSAGE_ACTION.MSG_SEND:
+                            if (!safes[msg.to_address] && !safes[msg.from_address]) break;
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_SEND;
                             txMessage.fromAddress = msg.from_address;
                             txMessage.toAddress = msg.to_address;
@@ -103,13 +107,15 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                         case MESSAGE_ACTION.MSG_MULTI_SEND:
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_MULTI_SEND;
                             txMessage.fromAddress = msg.inputs[0].address;
-                            msg.outputs.map(output => {
-                                txMessage.toAddress = output.address;
-                                txMessage.amount = output.coins[0].amount;
-                                listTxMessages.push(txMessage);
-                            });
+                            msg.outputs.filter(output => safes[msg.inputs[0].address] || safes[output.address])
+                                .map(output => {
+                                    txMessage.toAddress = output.address;
+                                    txMessage.amount = output.coins[0].amount;
+                                    listTxMessages.push(txMessage);
+                                });
                             break;
                         case MESSAGE_ACTION.MSG_DELEGATE:
+                            if (!safes[msg.delegator_address]) break;
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_DELEGATE;
                             txMessage.fromAddress = msg.validator_address;
                             txMessage.toAddress = msg.delegator_address;
@@ -123,6 +129,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                             }
                             break;
                         case MESSAGE_ACTION.MSG_REDELEGATE:
+                            if (!safes[msg.delegator_address]) break;
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_REDELEGATE;
                             txMessage.toAddress = msg.delegator_address;
                             let valSrcAddr = msg.validator_src_address;
@@ -149,6 +156,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                             }
                             break;
                         case MESSAGE_ACTION.MSG_UNDELEGATE:
+                            if (!safes[msg.delegator_address]) break;
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_UNDELEGATE;
                             txMessage.fromAddress = msg.validator_address;
                             txMessage.toAddress = msg.delegator_address;
@@ -162,6 +170,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                             }
                             break;
                         case MESSAGE_ACTION.MSG_WITHDRAW_REWARDS:
+                            if (!safes[msg.delegator_address]) break;
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
                             txMessage.fromAddress = msg.validator_address;
                             txMessage.toAddress = msg.delegator_address;
@@ -185,26 +194,14 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                     auraTx.gasUsed = parseInt(txs.tx_response.gas_used, 10);
                     auraTx.fee = parseInt(txs.tx.auth_info.fee.amount[0].amount, 10);
                     auraTx.rawLogs = txs.tx_response.raw_log;
+                    auraTx.fromAddress = listTxMessages[0].fromAddress;
+                    auraTx.toAddress = listTxMessages[0].toAddress;
                     auraTx.denom = this.chain.denom;
                     auraTx.timeStamp = new Date(txs.tx_response.timestamp);
                     auraTx.internalChainId = this.chain.id;
                     syncTxs.push(auraTx);
                 }
             }));
-
-            syncTxMessages.map((txMessage, index) => {
-                let txMsg = txMessage.find(tm => existSafes.find(safe => safe.safeAddress === tm.toAddress
-                    || safe.safeAddress === tm.fromAddress));
-                if (!txMsg) syncTxs.splice(index, 1);
-                else {
-                    syncTxs[index].toAddress = txMsg.toAddress;
-                    syncTxs[index].fromAddress = txMsg.fromAddress;
-                }
-            });
-            syncTxMessages = syncTxMessages.filter(txMessage =>
-                txMessage.find(tm => existSafes.find(safe => safe.safeAddress === tm.toAddress
-                    || safe.safeAddress === tm.fromAddress))
-            );
             this._logger.log('WEBSOCKET Qualified Txs: ' + JSON.stringify(syncTxs));
 
             if (syncTxs.length > 0) {
