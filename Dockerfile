@@ -1,4 +1,4 @@
-FROM node:dubnium
+FROM node:alpine3.15
 LABEL org.opencontainers.image.source https://github.com/aura-nw/multisig-sync
 
 ARG PORT=3000
