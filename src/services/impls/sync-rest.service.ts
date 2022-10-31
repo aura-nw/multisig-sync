@@ -102,6 +102,7 @@ export class SyncRestService implements ISyncRestService {
                 listQueries.push(this.getTxByHeight(i, network));
             }
             let result = await Promise.all(listQueries);
+            this._logger.log(`Query from ${lastHeight} to ${height}: ${JSON.stringify(result)}`);
             result = result.flat(1);
 
             if (result.length > 0) {
