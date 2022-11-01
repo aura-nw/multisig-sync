@@ -5,7 +5,7 @@ import { MemoryStorage } from 'node-ts-cache-storage-memory'
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ISyncRestService } from '../isync-rest.service';
-import { CONST_CHAR, MESSAGE_ACTION } from '../../common';
+import { CONST_CHAR, MESSAGE_ACTION, TRANSACTION_STATUS } from '../../common';
 import { ConfigService } from '../../shared/services/config.service';
 import { REPOSITORY_INTERFACE } from '../../module.config';
 import {
@@ -106,6 +106,9 @@ export class SyncRestService implements ISyncRestService {
             result = result.flat(1);
 
             if (result.length > 0) {
+                if (result.filter(res => res.tx_response.code !== 0).length > 0)
+                    this.checkTxFail(result.filter(res => res.tx_response.code !== 0).map(res => res.tx_response.txhash));
+
                 await Promise.all(result.map(async res => {
                     let listTxMessages: any[] = [];
                     await Promise.all(res.tx.body.messages.filter(msg =>
@@ -259,6 +262,12 @@ export class SyncRestService implements ISyncRestService {
             }
         }
         return tx;
+    }
+
+    async checkTxFail(listTxHashes) {
+        let txs = await this.multisigTransactionRepository.findMultisigTransactionsByHashes(listTxHashes, this.chain.id);
+        txs.map(tx => tx.status = TRANSACTION_STATUS.FAILED);
+        await this.multisigTransactionRepository.update(txs);
     }
 
     async findTxByHash(network) {
