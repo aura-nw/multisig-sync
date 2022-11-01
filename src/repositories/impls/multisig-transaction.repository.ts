@@ -27,4 +27,17 @@ export class MultisigTransactionRepository extends BaseRepository implements IMu
         let res = await query.getRawMany();
         return res;
     }
+
+    async findMultisigTransactionsByHashes(listTxHashes: string[], internalChainId: number): Promise<any> {
+        let query = this.repos.createQueryBuilder('multisigTransaction')
+            .where('multisigTransaction.txHash IN (:...listTxHashes)', { listTxHashes })
+            .andWhere('multisigTransaction.internalChainId = :internalChainId', { internalChainId })
+            .select([
+                'multisigTransaction.txHash as txHash',
+                'multisigTransaction.status as status',
+                'multisigTransaction.internalChainId as internalChainId'
+            ]);
+        let res = await query.getRawMany();
+        return res;
+    }
 }
