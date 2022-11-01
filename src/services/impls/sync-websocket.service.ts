@@ -4,13 +4,14 @@ import { StargateClient } from '@cosmjs/stargate';
 import * as WebSocket from 'socket.io-client';
 import * as axios from 'axios';
 import { ISyncWebsocketService } from '../isync-websocket.service';
-import { CONST_CHAR, MESSAGE_ACTION } from '../../common';
+import { CONST_CHAR, MESSAGE_ACTION, TRANSACTION_STATUS } from '../../common';
 import { ConfigService } from '../../shared/services/config.service';
 import {
     IAuraTransactionRepository,
     IChainRepository,
     ISafeRepository,
-    IMessageRepository
+    IMessageRepository,
+    IMultisigTransactionRepository
 } from '../../repositories';
 import { AuraTx, Message } from '../../entities';
 const _ = require('lodash');
@@ -43,6 +44,8 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         private chainRepository: IChainRepository,
         @Inject(REPOSITORY_INTERFACE.IMESSAGE_REPOSITORY)
         private messageRepository: IMessageRepository,
+        @Inject(REPOSITORY_INTERFACE.IMULTISIG_TRANSACTION_REPOSITORY)
+        private multisigTransactionRepository: IMultisigTransactionRepository,
     ) {
         this._logger.log(
             '============== Constructor Sync Websocket Service ==============',
@@ -85,6 +88,9 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         this._logger.log(listTx);
         let syncTxs: any[] = [], syncTxMessages: any[] = [];
         try {
+            if (listTx.filter(res => res.tx_response.code !== 0).length > 0)
+                this.checkTxFail(listTx.filter(res => res.tx_response.code !== 0).map(res => res.tx_response.txhash));
+
             let existSafes = await this.safeRepository.findSafeByInternalChainId(this.chain.id);
             const safes = _.keyBy(existSafes, 'safeAddress');
 
@@ -213,6 +219,12 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         } catch (error) {
             this._logger.error(error);
         }
+    }
+
+    async checkTxFail(listTxHashes) {
+        let txs = await this.multisigTransactionRepository.findMultisigTransactionsByHashes(listTxHashes, this.chain.id);
+        txs.map(tx => tx.status = TRANSACTION_STATUS.FAILED);
+        await this.multisigTransactionRepository.update(txs);
     }
 
     async searchTxRest(txHash: string, rpc: string) {
