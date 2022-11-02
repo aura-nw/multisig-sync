@@ -18,7 +18,7 @@ export class MultisigTransactionRepository extends BaseRepository implements IMu
     }
 
     async findPendingMultisigTransaction(internalChainId: number): Promise<any> {
-        const status = 'PENDING';
+        const status = TRANSACTION_STATUS.PENDING;
         let query = this.repos.createQueryBuilder('multisigTransaction')
             .where('multisigTransaction.status = :status', { status })
             .andWhere('multisigTransaction.txHash != \'\'')
@@ -34,8 +34,8 @@ export class MultisigTransactionRepository extends BaseRepository implements IMu
         await this.repos.createQueryBuilder('multisigTransaction')
             .update(MultisigTransaction)
             .set({ status: data.code === 0 ? TRANSACTION_STATUS.SUCCESS : TRANSACTION_STATUS.FAILED })
-            .where('multisigTransaction.txHash = :txHash', { txHash: data.txHash })
-            .andWhere('multisigTransaction.internalChainId = :internalChainId', { internalChainId })
+            .where({ txHash: data.txHash })
+            .andWhere('InternalChainId = :internalChainId', { internalChainId })
             .execute();
     }
 }
