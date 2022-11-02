@@ -17,6 +17,9 @@ import { HttpModule } from '@nestjs/axios';
 import { AppController } from './controllers/websocket.controller';
 import { MultisigTransactionRepository } from './repositories/impls/multisig-transaction.repository';
 import { MessageRepository } from './repositories/impls/message.repository';
+import { BullModule } from '@nestjs/bull';
+import { ConfigModule } from '@nestjs/config';
+import { SyncRestProcessor } from './processors/sync-rest.processor';
 const entities = [
     ENTITIES_CONFIG.AURA_TX,
     ENTITIES_CONFIG.SAFE,
@@ -25,9 +28,11 @@ const entities = [
     ENTITIES_CONFIG.MESSAGE
 ];
 const controllers = [AppController];
+const processors = [SyncRestProcessor];
 // @Global()
 @Module({
     imports: [
+        ConfigModule.forRoot(),
         SharedModule,
         TypeOrmModule.forRootAsync({
             imports: [SharedModule, AppModule],
@@ -38,6 +43,25 @@ const controllers = [AppController];
         TypeOrmModule.forFeature([...entities]),
         ScheduleModule.forRoot(),
         HttpModule,
+        BullModule.forRoot({
+            redis: {
+                host: process.env.REDIS_HOST,
+                port: process.env.REDIS_PORT,
+                username: process.env.REDIS_USERNAME,
+                db: parseInt(process.env.REDIS_DB, 10),
+            },
+            prefix: 'pyxis-safe-sync',
+            defaultJobOptions: {
+                removeOnComplete: true,
+            }
+        }),
+        BullModule.registerQueue({
+            name: 'sync-rest'
+        }),
+    ],
+    exports: [
+        BullModule,
+        ...processors,
     ],
     controllers: [...controllers],
     providers: [
@@ -70,7 +94,9 @@ const controllers = [AppController];
         {
             provide: REPOSITORY_INTERFACE.IMESSAGE_REPOSITORY,
             useClass: MessageRepository,
-        }
+        },
+        // processors
+        ...processors,
     ],
 })
-export class AppModule {}
+export class AppModule { }
