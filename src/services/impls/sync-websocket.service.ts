@@ -89,7 +89,12 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         let syncTxs: any[] = [], syncTxMessages: any[] = [];
         try {
             if (listTx.filter(res => res.tx_response.code !== 0).length > 0)
-                this.checkTxFail(listTx.filter(res => res.tx_response.code !== 0).map(res => res.tx_response.txhash));
+                this.checkTxFail(listTx.filter(res => res.tx_response.code !== 0).map(res => {
+                    return {
+                        code: res.tx_response.code,
+                        txHash: res.tx_response.txhash
+                    }
+                }));
 
             let existSafes = await this.safeRepository.findSafeByInternalChainId(this.chain.id);
             const safes = _.keyBy(existSafes, 'safeAddress');
@@ -221,10 +226,12 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         }
     }
 
-    async checkTxFail(listTxHashes) {
-        let txs = await this.multisigTransactionRepository.findMultisigTransactionsByHashes(listTxHashes, this.chain.id);
-        txs.map(tx => tx.status = TRANSACTION_STATUS.FAILED);
-        await this.multisigTransactionRepository.update(txs);
+    async checkTxFail(listData) {
+        let queries = [];
+        listData.map((data) => queries.push(this.multisigTransactionRepository.updateMultisigTransactionsByHashes(
+            data, this.chain.id
+        )));
+        await Promise.all(queries);
     }
 
     async searchTxRest(txHash: string, rpc: string) {
