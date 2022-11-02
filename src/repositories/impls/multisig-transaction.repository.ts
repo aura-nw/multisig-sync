@@ -4,6 +4,8 @@ import { ENTITIES_CONFIG } from "../../module.config";
 import { ObjectLiteral, Repository } from "typeorm";
 import { IMultisigTransactionRepository } from "../imultisig-transaction.repository";
 import { BaseRepository } from "./base.repository";
+import { MultisigTransaction } from "src/entities";
+import { TRANSACTION_STATUS } from "src/common";
 
 @Injectable()
 export class MultisigTransactionRepository extends BaseRepository implements IMultisigTransactionRepository {
@@ -28,16 +30,12 @@ export class MultisigTransactionRepository extends BaseRepository implements IMu
         return res;
     }
 
-    async findMultisigTransactionsByHashes(listTxHashes: string[], internalChainId: number): Promise<any> {
-        let query = this.repos.createQueryBuilder('multisigTransaction')
-            .where('multisigTransaction.txHash IN (:...listTxHashes)', { listTxHashes })
+    async updateMultisigTransactionsByHashes(data: any, internalChainId: number) {
+        await this.repos.createQueryBuilder('multisigTransaction')
+            .update(MultisigTransaction)
+            .set({ status: data.code === 0 ? TRANSACTION_STATUS.SUCCESS : TRANSACTION_STATUS.FAILED })
+            .where('multisigTransaction.txHash = :txHash', { txHash: data.txHash })
             .andWhere('multisigTransaction.internalChainId = :internalChainId', { internalChainId })
-            .select([
-                'multisigTransaction.txHash as txHash',
-                'multisigTransaction.status as status',
-                'multisigTransaction.internalChainId as internalChainId'
-            ]);
-        let res = await query.getRawMany();
-        return res;
+            .execute();
     }
 }
