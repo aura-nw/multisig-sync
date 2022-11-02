@@ -18,6 +18,7 @@ import {
 import { AuraTx, Message } from '../../entities';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import e from 'express';
 const _ = require('lodash');
 
 @Injectable()
@@ -75,7 +76,7 @@ export class SyncRestService implements ISyncRestService {
         });
         if (this.chain.rest.slice(-1) !== '/') this.chain.rest = this.chain.rest + '/';
 
-        this.findTxByHash(this.chain);
+        await this.findTxByHash(this.chain);
         if (this.chain.safeAddresses !== undefined) {
             this.syncFromNetwork(this.chain, this.chain.safeAddresses);
         }
@@ -112,10 +113,12 @@ export class SyncRestService implements ISyncRestService {
         }
     }
 
-    async checkTxFail(listTxHashes) {
-        let txs = await this.multisigTransactionRepository.findMultisigTransactionsByHashes(listTxHashes, this.chain.id);
-        txs.map(tx => tx.status = TRANSACTION_STATUS.FAILED);
-        await this.multisigTransactionRepository.update(txs);
+    async updateMultisigTxStatus(listData) {
+        let queries = [];
+        listData.map((data) => queries.push(this.multisigTransactionRepository.updateMultisigTransactionsByHashes(
+            data, this.chain.id
+        )));
+        await Promise.all(queries);
     }
 
     async findTxByHash(network) {
@@ -129,123 +132,13 @@ export class SyncRestService implements ISyncRestService {
             );
 
             let result: any = await Promise.all(listQueries);
-            if (result.filter(res => res.data.tx_response.code !== 0).length > 0)
-                this.checkTxFail(result.filter(res => res.data.tx_response.code !== 0).map(res => res.data.tx_response.txhash));
-            await Promise.all(result.map(async res => {
-                let listTxMessages: any[] = [];
-                await Promise.all(res.data.tx.body.messages.filter(msg =>
-                    this.listMessageAction.includes(msg['@type']) && res.data.tx_response.code === 0
-                ).map(async (msg, index) => {
-                    const type = msg['@type'];
-                    let txMessage = new Message();
-                    switch (type) {
-                        case MESSAGE_ACTION.MSG_SEND:
-                            txMessage.typeUrl = MESSAGE_ACTION.MSG_SEND;
-                            txMessage.fromAddress = msg.from_address;
-                            txMessage.toAddress = msg.to_address;
-                            txMessage.amount = msg.amount[0].amount;
-                            listTxMessages.push(txMessage);
-                            break;
-                        case MESSAGE_ACTION.MSG_MULTI_SEND:
-                            txMessage.typeUrl = MESSAGE_ACTION.MSG_MULTI_SEND;
-                            txMessage.fromAddress = msg.inputs[0].address;
-                            msg.outputs.map(output => {
-                                txMessage.toAddress = output.address;
-                                txMessage.amount = output.coins[0].amount;
-                                listTxMessages.push(txMessage);
-                            });
-                            break;
-                        case MESSAGE_ACTION.MSG_DELEGATE:
-                            txMessage.typeUrl = MESSAGE_ACTION.MSG_DELEGATE;
-                            txMessage.fromAddress = msg.validator_address;
-                            txMessage.toAddress = msg.delegator_address;
-                            let coin_received_delegate = res.data.tx_response.logs[index].events
-                                .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
-                            if (coin_received_delegate && coin_received_delegate.find(x => x.value === msg.delegator_address)) {
-                                const index_reward = coin_received_delegate.findIndex(x => x.value === msg.delegator_address);
-                                const claimed_reward = coin_received_delegate[index_reward + 1].value.match(/\d+/g)[0];
-                                txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                listTxMessages.push(txMessage);
-                            }
-                            break;
-                        case MESSAGE_ACTION.MSG_REDELEGATE:
-                            txMessage.typeUrl = MESSAGE_ACTION.MSG_REDELEGATE;
-                            txMessage.toAddress = msg.delegator_address;
-                            let valSrcAddr = msg.validator_src_address;
-                            let valDstAddr = msg.validator_dst_address;
-                            let coin_received_redelegate = res.data.tx_response.logs[index].events
-                                .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
-                            if (coin_received_redelegate && coin_received_redelegate.find(x => x.value === msg.delegator_address)) {
-                                const paramVal = this.configService.get('PARAM_GET_VALIDATOR') + valSrcAddr;
-                                let resultVal: any = await axios.default.get(network.rest + paramVal);
-                                let redelegate_claimed_reward = coin_received_redelegate.find(x => x.key === CONST_CHAR.AMOUNT);
-                                txMessage.amount = redelegate_claimed_reward.value.match(/\d+/g)[0];
-                                if (Number(resultVal.validator.commission.commission_rates.rate) !== 1) {
-                                    txMessage.fromAddress = valSrcAddr;
-                                    listTxMessages.push(txMessage);
-                                } else {
-                                    txMessage.fromAddress = valDstAddr;
-                                    listTxMessages.push(txMessage);
-                                }
-                                if (coin_received_redelegate.length > 2) {
-                                    txMessage.fromAddress = valDstAddr;
-                                    txMessage.amount = coin_received_redelegate[3].value.match(/\d+/g)[0];
-                                    listTxMessages.push(txMessage);
-                                }
-                            }
-                            break;
-                        case MESSAGE_ACTION.MSG_UNDELEGATE:
-                            txMessage.typeUrl = MESSAGE_ACTION.MSG_UNDELEGATE;
-                            txMessage.fromAddress = msg.validator_address;
-                            txMessage.toAddress = msg.delegator_address;
-                            let coin_received_unbond = res.data.tx_response.logs[index].events
-                                .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
-                            if (coin_received_unbond && coin_received_unbond.find(x => x.value === msg.delegator_address)) {
-                                const index_reward = coin_received_unbond.findIndex(x => x.value === msg.delegator_address);
-                                const claimed_reward = coin_received_unbond[index_reward + 1].value.match(/\d+/g)[0];
-                                txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                listTxMessages.push(txMessage);
-                            }
-                            break;
-                        case MESSAGE_ACTION.MSG_WITHDRAW_REWARDS:
-                            txMessage.typeUrl = MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
-                            txMessage.fromAddress = msg.validator_address;
-                            txMessage.toAddress = msg.delegator_address;
-                            let coin_received_claim = res.data.tx_response.logs[index].events
-                                .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
-                            if (coin_received_claim && coin_received_claim.find(x => x.value === msg.delegator_address)) {
-                                txMessage.amount = coin_received_claim.find(x => x.key = CONST_CHAR.AMOUNT)
-                                    .value.match(/\d+/g)[0];
-                                listTxMessages.push(txMessage);
-                            }
-                            break;
-                    }
-                }));
-
-                if (listTxMessages.length > 0) {
-                    pendingTxMessages.push(listTxMessages);
-                    let auraTx = new AuraTx();
-                    auraTx.txHash = res.data.tx_response.txhash;
-                    auraTx.height = parseInt(res.data.tx_response.height, 10);
-                    auraTx.code = res.data.tx_response.code;
-                    auraTx.gasWanted = parseInt(res.data.tx_response.gas_wanted, 10);
-                    auraTx.gasUsed = parseInt(res.data.tx_response.gas_used, 10);
-                    auraTx.fee = parseInt(res.data.tx.auth_info.fee.amount[0].amount, 10);
-                    auraTx.rawLogs = res.data.tx_response.raw_log;
-                    auraTx.denom = network.denom;
-                    auraTx.timeStamp = new Date(res.data.tx_response.timestamp);
-                    auraTx.internalChainId = network.id;
-                    pendingTransations.push(auraTx);
-                    this._logger.log(auraTx.txHash, 'Pending Tx being updated');
+            this._logger.log(`Result find pending tx: ${result}`);
+            await this.updateMultisigTxStatus(result.map(res => {
+                return {
+                    code: res.data.tx_response.code,
+                    txHash: res.data.tx_response.txhash
                 }
             }));
-
-            if (pendingTransations.length > 0) {
-                let txs = await this.auraTxRepository.insertBulkTransaction(pendingTransations);
-                let id = txs.insertId;
-                pendingTxMessages.map(txMessage => txMessage.map(tm => tm.auraTxId = id++));
-                await this.messageRepository.insertBulkTransaction(pendingTxMessages.flat());
-            }
         }
     }
 }
