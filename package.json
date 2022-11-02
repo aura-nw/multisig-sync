@@ -26,7 +26,9 @@
   "dependencies": {
     "@cosmjs/stargate": "^0.26.8",
     "@nestjs/axios": "0.0.4",
+    "@nestjs/bull": "^0.6.1",
     "@nestjs/common": "^7.5.1",
+    "@nestjs/config": "^2.2.0",
     "@nestjs/core": "^7.5.1",
     "@nestjs/platform-express": "^7.5.1",
     "@nestjs/platform-socket.io": "^8.2.4",
@@ -37,6 +39,7 @@
     "axios": "^0.21.2",
     "bip32": "^3.0.1",
     "bip39": "^3.0.4",
+    "bull": "^4.10.1",
     "dotenv": "^10.0.0",
     "mysql2": "^2.3.3",
     "node-cache": "^5.1.2",
