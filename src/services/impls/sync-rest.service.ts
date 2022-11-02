@@ -75,7 +75,7 @@ export class SyncRestService implements ISyncRestService {
         });
         if (this.chain.rest.slice(-1) !== '/') this.chain.rest = this.chain.rest + '/';
 
-        await this.findTxByHash(this.chain);
+        this.findTxByHash(this.chain);
         if (this.chain.safeAddresses !== undefined) {
             this.syncFromNetwork(this.chain, this.chain.safeAddresses);
         }
