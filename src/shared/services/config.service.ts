@@ -57,7 +57,7 @@ export class ConfigService {
             password: this.get('DB_PASSWORD'),
             database: this.get('DB_DATABASE'),
             migrationsRun: true,
-            connectTimeout: 1000,
+            connectTimeout: 60000,
             logging: this.nodeEnv === 'development',
             namingStrategy: new PascalCaseStrategy(),
             multipleStatements: true,
