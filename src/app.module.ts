@@ -50,7 +50,7 @@ const processors = [SyncRestProcessor];
                 username: process.env.REDIS_USERNAME,
                 db: parseInt(process.env.REDIS_DB, 10),
             },
-            prefix: 'pyxis-safe-sync',
+            prefix: `pyxis-safe-sync-${JSON.parse(process.env.CHAIN_SUBCRIBE)[0]}`,
             defaultJobOptions: {
                 removeOnComplete: true,
             }
