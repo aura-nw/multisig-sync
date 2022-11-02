@@ -61,7 +61,7 @@ export class SyncRestService implements ISyncRestService {
         this.syncRest();
     }
 
-    // @Cron(CronExpression.EVERY_10_SECONDS)
+    @Cron(CronExpression.EVERY_10_SECONDS)
     async syncRest() {
         this.chain = await this.chainRepository.findChainByChainId(this.listChainIdSubscriber[0]);
         this.listSafeAddress = await this.safeRepository.findSafeByInternalChainId(this.chain.id);
