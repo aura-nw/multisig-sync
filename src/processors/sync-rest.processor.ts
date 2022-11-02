@@ -2,15 +2,15 @@ import { OnQueueActive, OnQueueCompleted, OnQueueError, OnQueueFailed, Process, 
 import { Logger, Inject } from "@nestjs/common";
 import * as axios from 'axios';
 import { Job } from "bull";
-import { CONST_CHAR, MESSAGE_ACTION, TRANSACTION_STATUS } from "src/common";
-import { AuraTx, Message } from "src/entities";
-import { REPOSITORY_INTERFACE } from "src/module.config";
+import { CONST_CHAR, MESSAGE_ACTION, TRANSACTION_STATUS } from "../common";
+import { AuraTx, Message } from "../entities";
+import { REPOSITORY_INTERFACE } from "../module.config";
 import {
     IAuraTransactionRepository,
     IMessageRepository,
     IMultisigTransactionRepository,
-} from "src/repositories";
-import { ConfigService } from "src/shared/services/config.service";
+} from "../repositories";
+import { ConfigService } from "../shared/services/config.service";
 
 @Processor('sync-rest')
 export class SyncRestProcessor {
