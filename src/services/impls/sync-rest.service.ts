@@ -61,7 +61,7 @@ export class SyncRestService implements ISyncRestService {
         this.syncRest();
     }
 
-    @Cron(CronExpression.EVERY_10_SECONDS)
+    // @Cron(CronExpression.EVERY_10_SECONDS)
     async syncRest() {
         this.chain = await this.chainRepository.findChainByChainId(this.listChainIdSubscriber[0]);
         this.listSafeAddress = await this.safeRepository.findSafeByInternalChainId(this.chain.id);
@@ -129,7 +129,8 @@ export class SyncRestService implements ISyncRestService {
             );
 
             let result: any = await Promise.all(listQueries);
-            this.checkTxFail(result.filter(res => res.tx_response.code !== 0).map(res => res.tx_response.txhash));
+            if (result.filter(res => res.data.tx_response.code !== 0).length > 0)
+                this.checkTxFail(result.filter(res => res.data.tx_response.code !== 0).map(res => res.data.tx_response.txhash));
             await Promise.all(result.map(async res => {
                 let listTxMessages: any[] = [];
                 await Promise.all(res.data.tx.body.messages.filter(msg =>
