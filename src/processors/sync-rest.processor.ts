@@ -49,7 +49,7 @@ export class SyncRestProcessor {
         let height = job.data.height;
         let safes = job.data.safes;
         let network = job.data.network;
-        const param = `chainid=${network.chainId}&blockHeight=${height}&pageLimit=100`;
+        const param = `transaction?chainid=${network.chainId}&blockHeight=${height}&pageLimit=100`;
         let urlToCall = param;
         let done = false;
         let resultCallApi;
@@ -79,7 +79,7 @@ export class SyncRestProcessor {
 
                 result.map(res => {
                     listQueries.push(axios.default.get(
-                        this.horoscopeApi + `chainid=${network.chainId}&txHash=${res.txHash}&pageLimit=100`
+                        this.horoscopeApi + `transaction?chainid=${network.chainId}&txHash=${res.txHash}&pageLimit=100`
                     ))
                 });
                 result = await Promise.all(listQueries);
