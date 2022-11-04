@@ -4,8 +4,8 @@ import { ENTITIES_CONFIG } from "../../module.config";
 import { ObjectLiteral, Repository } from "typeorm";
 import { IMultisigTransactionRepository } from "../imultisig-transaction.repository";
 import { BaseRepository } from "./base.repository";
-import { MultisigTransaction } from "src/entities";
-import { TRANSACTION_STATUS } from "src/common";
+import { MultisigTransaction } from "../../entities";
+import { TRANSACTION_STATUS } from "../../common";
 
 @Injectable()
 export class MultisigTransactionRepository extends BaseRepository implements IMultisigTransactionRepository {
