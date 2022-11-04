@@ -23,6 +23,7 @@ export class SyncRestProcessor {
         MESSAGE_ACTION.MSG_UNDELEGATE,
         MESSAGE_ACTION.MSG_WITHDRAW_REWARDS,
     ];
+    private horoscopeApi;
 
     constructor(
         private configService: ConfigService,
@@ -36,34 +37,36 @@ export class SyncRestProcessor {
         this.logger.log(
             '============== Constructor Sync Rest Processor Service ==============',
         );
+
+        this.horoscopeApi = this.configService.get('HOROSCOPE_API');
     }
 
     @Process('sync-tx-by-height')
     async handleQueryTxByHeight(job: Job) {
-        this.logger.log(`Handle Job: ${job.data}`);
-        let syncTxs: any[] = [], syncTxMessages: any[] = [];
+        this.logger.log(`Handle Job: ${JSON.stringify(job.data)}`);
+        let syncTxs: any[] = [], syncTxMessages: any[] = [], listQueries: any[] = [];
         let result = [];
         let height = job.data.height;
         let safes = job.data.safes;
         let network = job.data.network;
-        const param = this.configService.get('PARAM_TX_BY_HEIGHT') + `${height}&pagination.limit=100`;
+        const param = `chainid=${network.chainId}&blockHeight=${height}&pageLimit=100`;
         let urlToCall = param;
         let done = false;
         let resultCallApi;
         while (!done) {
-            resultCallApi = await axios.default.get(network.rest + urlToCall);
-            if (resultCallApi.data.txs.length > 0)
-                resultCallApi.data.txs.map((res, index) => {
+            resultCallApi = await axios.default.get(this.horoscopeApi + urlToCall);
+            if (resultCallApi.data.data.transactions.length > 0)
+                resultCallApi.data.data.transactions.map(res => {
                     result.push({
-                        tx: res,
-                        tx_response: resultCallApi.data.tx_responses[index]
+                        code: parseInt(res.tx_response.code, 10),
+                        txHash: res.tx_response.txhash
                     });
-                })
-            if (resultCallApi.data.pagination.next_key === null) {
+                });
+            if (resultCallApi.data.data.nextKey === null) {
                 done = true;
             } else {
-                urlToCall = `${param}&pagination.key=${encodeURIComponent(
-                    resultCallApi.data.pagination.next_key,
+                urlToCall = `${param}&nextKey=${encodeURIComponent(
+                    resultCallApi.data.data.nextKey,
                 )}`;
             }
         }
@@ -71,18 +74,20 @@ export class SyncRestProcessor {
 
         try {
             if (result.length > 0) {
-                if (result.filter(res => res.tx_response.code !== 0).length > 0)
-                    this.checkTxFail(result.filter(res => res.tx_response.code !== 0).map(res => {
-                        return {
-                            code: res.tx_response.code,
-                            txHash: res.tx_response.txhash
-                        }
-                    }), network);
+                if (result.filter(res => res.code !== 0).length > 0)
+                    this.checkTxFail(result.filter(res => res.code !== 0), network);
 
-                await Promise.all(result.map(async res => {
+                result.map(res => {
+                    listQueries.push(axios.default.get(
+                        this.horoscopeApi + `chainid=${network.chainId}&txHash=${res.txHash}&pageLimit=100`
+                    ))
+                });
+                result = await Promise.all(listQueries);
+
+                await Promise.all(result.map(res => res.data.data.transactions[0]).map(async res => {
                     let listTxMessages: any[] = [];
                     await Promise.all(res.tx.body.messages.filter(msg =>
-                        this.listMessageAction.includes(msg['@type']) && res.tx_response.code === 0
+                        this.listMessageAction.includes(msg['@type']) && res.tx_response.code === '0'
                     ).map(async (msg, index) => {
                         const type = msg['@type'];
                         let txMessage = new Message();
