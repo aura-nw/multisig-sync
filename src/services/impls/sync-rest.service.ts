@@ -81,9 +81,10 @@ export class SyncRestService implements ISyncRestService {
     async syncFromNetwork(network, listSafes) {
         try {
             const safes = _.keyBy(listSafes, 'safeAddress');
-            const client = await StargateClient.connect(network.rpc);
-            // Get the current block height received from websocket
-            let height = (await client.getBlock()).header.height;
+            // Get the current latest block height on network
+            let height = (await axios.default.get(
+                this.horoscopeApi + `block?chainid=${network.chainId}&pageLimit=1`
+            )).data.data.blocks[0].block.header.height;
             // Get the last block height from cache (if exists) minus 2 blocks
             let cacheLastHeight = await this.redisClient.get(this.cacheKey);
             let lastHeightFromDB = await this.getLatestBlockHeight(network.id);
@@ -120,7 +121,7 @@ export class SyncRestService implements ISyncRestService {
         if (listPendingTx.length > 0) {
             listPendingTx.map(tx =>
                 listQueries.push(axios.default.get(
-                    this.horoscopeApi + `chainid=${network.chainId}&txHash=${tx.txHash}&pageLimit=100`
+                    this.horoscopeApi + `transaction?chainid=${network.chainId}&txHash=${tx.txHash}&pageLimit=100`
                 ))
             );
 
