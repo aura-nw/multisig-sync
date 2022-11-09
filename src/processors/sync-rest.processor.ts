@@ -178,6 +178,7 @@ export class SyncRestProcessor {
                                 if (coin_received_claim && coin_received_claim.find(x => x.value === msg.delegator_address)) {
                                     txMessage.amount = coin_received_claim.find(x => x.key = CONST_CHAR.AMOUNT)
                                         .value.match(/\d+/g)[0];
+                                    console.log(JSON.stringify(coin_received_claim));
                                     // listTxMessages.push(txMessage);
                                 }
                                 listTxMessages.push(txMessage);
