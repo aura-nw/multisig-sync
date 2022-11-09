@@ -196,7 +196,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                             let coin_received_claim = txs.tx_response.logs[index].events
                                 .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
                             if (coin_received_claim && coin_received_claim.find(x => x.value === msg.delegator_address)) {
-                                txMessage.amount = coin_received_claim.find(x => x.key = CONST_CHAR.AMOUNT)
+                                txMessage.amount = coin_received_claim.find(x => x.key === CONST_CHAR.AMOUNT)
                                     .value.match(/\d+/g)[0];
                                 // listTxMessages.push(txMessage);
                             }
