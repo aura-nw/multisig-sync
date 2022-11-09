@@ -121,8 +121,9 @@ export class SyncRestProcessor {
                                     const index_reward = coin_received_delegate.findIndex(x => x.value === msg.delegator_address);
                                     const claimed_reward = coin_received_delegate[index_reward + 1].value.match(/\d+/g)[0];
                                     txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                    listTxMessages.push(txMessage);
+                                    // listTxMessages.push(txMessage);
                                 }
+                                listTxMessages.push(txMessage);
                                 break;
                             case MESSAGE_ACTION.MSG_REDELEGATE:
                                 if (!safes[msg.delegator_address]) break;
@@ -139,17 +140,18 @@ export class SyncRestProcessor {
                                     txMessage.amount = redelegate_claimed_reward.value.match(/\d+/g)[0];
                                     if (Number(resultVal.data.validator.commission.commission_rates.rate) !== 1) {
                                         txMessage.fromAddress = valSrcAddr;
-                                        listTxMessages.push(txMessage);
+                                        // listTxMessages.push(txMessage);
                                     } else {
                                         txMessage.fromAddress = valDstAddr;
-                                        listTxMessages.push(txMessage);
+                                        // listTxMessages.push(txMessage);
                                     }
                                     if (coin_received_redelegate.length > 2) {
                                         txMessage.fromAddress = valDstAddr;
                                         txMessage.amount = coin_received_redelegate[3].value.match(/\d+/g)[0];
-                                        listTxMessages.push(txMessage);
+                                        // listTxMessages.push(txMessage);
                                     }
                                 }
+                                listTxMessages.push(txMessage);
                                 break;
                             case MESSAGE_ACTION.MSG_UNDELEGATE:
                                 if (!safes[msg.delegator_address]) break;
@@ -162,8 +164,9 @@ export class SyncRestProcessor {
                                     const index_reward = coin_received_unbond.findIndex(x => x.value === msg.delegator_address);
                                     const claimed_reward = coin_received_unbond[index_reward + 1].value.match(/\d+/g)[0];
                                     txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                    listTxMessages.push(txMessage);
+                                    // listTxMessages.push(txMessage);
                                 }
+                                listTxMessages.push(txMessage);
                                 break;
                             case MESSAGE_ACTION.MSG_WITHDRAW_REWARDS:
                                 if (!safes[msg.delegator_address]) break;
@@ -175,8 +178,9 @@ export class SyncRestProcessor {
                                 if (coin_received_claim && coin_received_claim.find(x => x.value === msg.delegator_address)) {
                                     txMessage.amount = coin_received_claim.find(x => x.key = CONST_CHAR.AMOUNT)
                                         .value.match(/\d+/g)[0];
-                                    listTxMessages.push(txMessage);
+                                    // listTxMessages.push(txMessage);
                                 }
+                                listTxMessages.push(txMessage);
                                 break;
                         }
                     }));
