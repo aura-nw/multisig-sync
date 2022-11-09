@@ -99,6 +99,10 @@ export class SyncWebsocketService implements ISyncWebsocketService {
 
             await Promise.all(listTx.map(async txs => {
                 let listTxMessages: any[] = [];
+
+                // for tx with auto claim reward amount == 0
+                let hasToInsert = false;
+
                 await Promise.all(txs.tx.body.messages.filter(msg =>
                     this.listMessageAction.includes(msg['@type']) && txs.tx_response.code === 0
                 ).map(async (msg, index) => {
@@ -125,6 +129,8 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                             break;
                         case MESSAGE_ACTION.MSG_DELEGATE:
                             if (!safes[msg.delegator_address]) break;
+                            hasToInsert = true;
+
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_DELEGATE;
                             txMessage.fromAddress = msg.validator_address;
                             txMessage.toAddress = msg.delegator_address;
@@ -139,6 +145,8 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                             break;
                         case MESSAGE_ACTION.MSG_REDELEGATE:
                             if (!safes[msg.delegator_address]) break;
+                            hasToInsert = true;
+
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_REDELEGATE;
                             txMessage.toAddress = msg.delegator_address;
                             let valSrcAddr = msg.validator_src_address;
@@ -166,6 +174,8 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                             break;
                         case MESSAGE_ACTION.MSG_UNDELEGATE:
                             if (!safes[msg.delegator_address]) break;
+                            hasToInsert = true;
+
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_UNDELEGATE;
                             txMessage.fromAddress = msg.validator_address;
                             txMessage.toAddress = msg.delegator_address;
@@ -180,6 +190,8 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                             break;
                         case MESSAGE_ACTION.MSG_WITHDRAW_REWARDS:
                             if (!safes[msg.delegator_address]) break;
+                            hasToInsert = true;
+
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
                             txMessage.fromAddress = msg.validator_address;
                             txMessage.toAddress = msg.delegator_address;
@@ -193,7 +205,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                             break;
                     }
                 }));
-                if (listTxMessages.length > 0) {
+                if (hasToInsert || listTxMessages.length > 0) {
                     syncTxMessages.push(listTxMessages);
                     let auraTx = new AuraTx();
                     auraTx.txHash = txs.tx_response.txhash;
