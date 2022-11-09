@@ -100,9 +100,6 @@ export class SyncWebsocketService implements ISyncWebsocketService {
             await Promise.all(listTx.map(async txs => {
                 let listTxMessages: any[] = [];
 
-                // for tx with auto claim reward amount == 0
-                let hasToInsert = false;
-
                 await Promise.all(txs.tx.body.messages.filter(msg =>
                     this.listMessageAction.includes(msg['@type']) && txs.tx_response.code === 0
                 ).map(async (msg, index) => {
@@ -129,7 +126,6 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                             break;
                         case MESSAGE_ACTION.MSG_DELEGATE:
                             if (!safes[msg.delegator_address]) break;
-                            hasToInsert = true;
 
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_DELEGATE;
                             txMessage.fromAddress = msg.validator_address;
@@ -140,12 +136,12 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                                 const index_reward = coin_received_delegate.findIndex(x => x.value === msg.delegator_address);
                                 const claimed_reward = coin_received_delegate[index_reward + 1].value.match(/\d+/g)[0];
                                 txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                listTxMessages.push(txMessage);
+                                // listTxMessages.push(txMessage);
                             }
+                            listTxMessages.push(txMessage);
                             break;
                         case MESSAGE_ACTION.MSG_REDELEGATE:
                             if (!safes[msg.delegator_address]) break;
-                            hasToInsert = true;
 
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_REDELEGATE;
                             txMessage.toAddress = msg.delegator_address;
@@ -160,21 +156,21 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                                 txMessage.amount = redelegate_claimed_reward.value.match(/\d+/g)[0];
                                 if (Number(resultVal.data.validator.commission.commission_rates.rate) !== 1) {
                                     txMessage.fromAddress = valSrcAddr;
-                                    listTxMessages.push(txMessage);
+                                    // listTxMessages.push(txMessage);
                                 } else {
                                     txMessage.fromAddress = valDstAddr;
-                                    listTxMessages.push(txMessage);
+                                    // listTxMessages.push(txMessage);
                                 }
                                 if (coin_received_redelegate.length > 2) {
                                     txMessage.fromAddress = valDstAddr;
                                     txMessage.amount = coin_received_redelegate[3].value.match(/\d+/g)[0];
-                                    listTxMessages.push(txMessage);
+                                    // listTxMessages.push(txMessage);
                                 }
                             }
+                            listTxMessages.push(txMessage);
                             break;
                         case MESSAGE_ACTION.MSG_UNDELEGATE:
                             if (!safes[msg.delegator_address]) break;
-                            hasToInsert = true;
 
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_UNDELEGATE;
                             txMessage.fromAddress = msg.validator_address;
@@ -185,12 +181,12 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                                 const index_reward = coin_received_unbond.findIndex(x => x.value === msg.delegator_address);
                                 const claimed_reward = coin_received_unbond[index_reward + 1].value.match(/\d+/g)[0];
                                 txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                listTxMessages.push(txMessage);
+                                // listTxMessages.push(txMessage);
                             }
+                            listTxMessages.push(txMessage);
                             break;
                         case MESSAGE_ACTION.MSG_WITHDRAW_REWARDS:
                             if (!safes[msg.delegator_address]) break;
-                            hasToInsert = true;
 
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
                             txMessage.fromAddress = msg.validator_address;
@@ -200,12 +196,13 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                             if (coin_received_claim && coin_received_claim.find(x => x.value === msg.delegator_address)) {
                                 txMessage.amount = coin_received_claim.find(x => x.key = CONST_CHAR.AMOUNT)
                                     .value.match(/\d+/g)[0];
-                                listTxMessages.push(txMessage);
+                                // listTxMessages.push(txMessage);
                             }
+                            listTxMessages.push(txMessage);
                             break;
                     }
                 }));
-                if (hasToInsert || listTxMessages.length > 0) {
+                if (listTxMessages.length > 0) {
                     syncTxMessages.push(listTxMessages);
                     let auraTx = new AuraTx();
                     auraTx.txHash = txs.tx_response.txhash;
