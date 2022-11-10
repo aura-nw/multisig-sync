@@ -116,13 +116,16 @@ export class SyncRestProcessor {
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_DELEGATE;
                                 txMessage.fromAddress = msg.validator_address;
                                 txMessage.toAddress = msg.delegator_address;
-                                let coin_received_delegate = res.tx_response.logs[index].events
+                                txMessage.amount = null;
+                                if (res.tx_response.logs.length > 0 ) {
+                                    let coin_received_delegate = res.tx_response.logs[index].events
                                     .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
-                                if (coin_received_delegate && coin_received_delegate.find(x => x.value === msg.delegator_address)) {
-                                    const index_reward = coin_received_delegate.findIndex(x => x.value === msg.delegator_address);
-                                    const claimed_reward = coin_received_delegate[index_reward + 1].value.match(/\d+/g)[0];
-                                    txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                    listTxMessages.push(txMessage);
+                                    if (coin_received_delegate && coin_received_delegate.find(x => x.value === msg.delegator_address)) {
+                                        const index_reward = coin_received_delegate.findIndex(x => x.value === msg.delegator_address);
+                                        const claimed_reward = coin_received_delegate[index_reward + 1].value.match(/\d+/g)[0];
+                                        txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
+                                        listTxMessages.push(txMessage);
+                                    }
                                 }
                                 // listTxMessages.push(txMessage);
                                 break;
@@ -132,24 +135,30 @@ export class SyncRestProcessor {
                                 txMessage.toAddress = msg.delegator_address;
                                 let valSrcAddr = msg.validator_src_address;
                                 let valDstAddr = msg.validator_dst_address;
-                                let coin_received_redelegate = res.tx_response.logs[index].events
+                                txMessage.fromAddress = null;
+                                txMessage.amount = null;
+
+                                if (res.tx_response.logs.length > 0 ) {
+                                    let coin_received_redelegate = res.tx_response.logs[index].events
                                     .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
-                                if (coin_received_redelegate && coin_received_redelegate.find(x => x.value === msg.delegator_address)) {
-                                    const paramVal = this.configService.get('PARAM_GET_VALIDATOR') + valSrcAddr;
-                                    let resultVal: any = await axios.default.get(network.rest + paramVal);
-                                    let redelegate_claimed_reward = coin_received_redelegate.find(x => x.key === CONST_CHAR.AMOUNT);
-                                    txMessage.amount = redelegate_claimed_reward.value.match(/\d+/g)[0];
-                                    if (Number(resultVal.data.validator.commission.commission_rates.rate) !== 1) {
-                                        txMessage.fromAddress = valSrcAddr;
-                                        // listTxMessages.push(txMessage);
-                                    } else {
-                                        txMessage.fromAddress = valDstAddr;
-                                        // listTxMessages.push(txMessage);
-                                    }
-                                    if (coin_received_redelegate.length > 2) {
-                                        txMessage.fromAddress = valDstAddr;
-                                        txMessage.amount = coin_received_redelegate[3].value.match(/\d+/g)[0];
-                                        // listTxMessages.push(txMessage);
+
+                                    if (coin_received_redelegate && coin_received_redelegate.find(x => x.value === msg.delegator_address)) {
+                                        const paramVal = this.configService.get('PARAM_GET_VALIDATOR') + valSrcAddr;
+                                        let resultVal: any = await axios.default.get(network.rest + paramVal);
+                                        let redelegate_claimed_reward = coin_received_redelegate.find(x => x.key === CONST_CHAR.AMOUNT);
+                                        txMessage.amount = redelegate_claimed_reward.value.match(/\d+/g)[0];
+                                        if (Number(resultVal.data.validator.commission.commission_rates.rate) !== 1) {
+                                            txMessage.fromAddress = valSrcAddr;
+                                            // listTxMessages.push(txMessage);
+                                        } else {
+                                            txMessage.fromAddress = valDstAddr;
+                                            // listTxMessages.push(txMessage);
+                                        }
+                                        if (coin_received_redelegate.length > 2) {
+                                            txMessage.fromAddress = valDstAddr;
+                                            txMessage.amount = coin_received_redelegate[3].value.match(/\d+/g)[0];
+                                            // listTxMessages.push(txMessage);
+                                        }
                                     }
                                 }
                                 listTxMessages.push(txMessage);
@@ -159,13 +168,17 @@ export class SyncRestProcessor {
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_UNDELEGATE;
                                 txMessage.fromAddress = msg.validator_address;
                                 txMessage.toAddress = msg.delegator_address;
-                                let coin_received_unbond = res.tx_response.logs[index].events
-                                    .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
-                                if (coin_received_unbond && coin_received_unbond.find(x => x.value === msg.delegator_address)) {
-                                    const index_reward = coin_received_unbond.findIndex(x => x.value === msg.delegator_address);
-                                    const claimed_reward = coin_received_unbond[index_reward + 1].value.match(/\d+/g)[0];
-                                    txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                    // listTxMessages.push(txMessage);
+                                txMessage.amount = null;
+
+                                if (res.tx_response.logs.length > 0 ) {
+                                    let coin_received_unbond = res.tx_response.logs[index].events
+                                        .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
+                                    if (coin_received_unbond && coin_received_unbond.find(x => x.value === msg.delegator_address)) {
+                                        const index_reward = coin_received_unbond.findIndex(x => x.value === msg.delegator_address);
+                                        const claimed_reward = coin_received_unbond[index_reward + 1].value.match(/\d+/g)[0];
+                                        txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
+                                        // listTxMessages.push(txMessage);
+                                    }
                                 }
                                 listTxMessages.push(txMessage);
                                 break;
@@ -174,12 +187,16 @@ export class SyncRestProcessor {
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
                                 txMessage.fromAddress = msg.validator_address;
                                 txMessage.toAddress = msg.delegator_address;
-                                let coin_received_claim = res.tx_response.logs[index].events
-                                    .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
-                                if (coin_received_claim && coin_received_claim.find(x => x.value === msg.delegator_address)) {
-                                    txMessage.amount = coin_received_claim.find(x => x.key === CONST_CHAR.AMOUNT)
-                                        .value.match(/\d+/g)[0];
-                                    // listTxMessages.push(txMessage);
+                                txMessage.amount = null;
+
+                                if (res.tx_response.logs.length > 0 ) {
+                                    const coin_received_claim = res.tx_response.logs[index].events
+                                        .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
+                                    if (coin_received_claim && coin_received_claim.find(x => x.value === msg.delegator_address)) {
+                                        txMessage.amount = coin_received_claim.find(x => x.key === CONST_CHAR.AMOUNT)
+                                            .value.match(/\d+/g)[0];
+                                        // listTxMessages.push(txMessage);
+                                    }
                                 }
                                 listTxMessages.push(txMessage);
                                 break;
