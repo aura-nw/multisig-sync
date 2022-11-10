@@ -91,8 +91,6 @@ export class SyncRestService implements ISyncRestService {
             if (lastHeightFromDB === 0) lastHeightFromDB = height - 15;
             let lastHeight = (cacheLastHeight ? cacheLastHeight : lastHeightFromDB) - 5;
             this._logger.log(`Last height from cache: ${cacheLastHeight}, query from ${lastHeight} to current height: ${height}`);
-            // set cache last height to the latest block height
-            await this.redisClient.set(this.cacheKey, height);
 
             // Query lost transactions
             for (let i = lastHeight; i <= height; i++) {
@@ -102,6 +100,9 @@ export class SyncRestService implements ISyncRestService {
                     network,
                 });
             }
+
+            // set cache last height to the latest block height
+            await this.redisClient.set(this.cacheKey, height);
         } catch (error) {
             this._logger.error(error);
         }
