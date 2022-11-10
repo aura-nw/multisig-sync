@@ -74,8 +74,8 @@ export class SyncRestProcessor {
 
         try {
             if (result.length > 0) {
-                if (result.filter(res => res.code !== 0).length > 0)
-                    this.checkTxFail(result.filter(res => res.code !== 0), network);
+                // if (result.filter(res => res.code !== 0).length > 0)
+                //     this.checkTxFail(result.filter(res => res.code !== 0), network);
 
                 result.map(res => {
                     listQueries.push(axios.default.get(
@@ -87,7 +87,8 @@ export class SyncRestProcessor {
                 await Promise.all(result.map(res => res.data.data.transactions[0]).map(async res => {
                     let listTxMessages: any[] = [];
                     await Promise.all(res.tx.body.messages.filter(msg =>
-                        this.listMessageAction.includes(msg['@type']) && res.tx_response.code === '0'
+                        this.listMessageAction.includes(msg['@type'])
+                        //  && res.tx_response.code === '0'
                     ).map(async (msg, index) => {
                         const type = msg['@type'];
                         let txMessage = new Message();
@@ -121,9 +122,9 @@ export class SyncRestProcessor {
                                     const index_reward = coin_received_delegate.findIndex(x => x.value === msg.delegator_address);
                                     const claimed_reward = coin_received_delegate[index_reward + 1].value.match(/\d+/g)[0];
                                     txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                    // listTxMessages.push(txMessage);
+                                    listTxMessages.push(txMessage);
                                 }
-                                listTxMessages.push(txMessage);
+                                // listTxMessages.push(txMessage);
                                 break;
                             case MESSAGE_ACTION.MSG_REDELEGATE:
                                 if (!safes[msg.delegator_address]) break;
