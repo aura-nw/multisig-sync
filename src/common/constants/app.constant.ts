@@ -19,6 +19,7 @@ export enum MESSAGE_ACTION {
     MSG_REDELEGATE = '/cosmos.staking.v1beta1.MsgBeginRedelegate',
     MSG_UNDELEGATE = '/cosmos.staking.v1beta1.MsgUndelegate',
     MSG_WITHDRAW_REWARDS = '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
+    MSG_VOTE = '/cosmos.gov.v1beta1.MsgVote',
 }
 
 export enum CONST_CHAR {

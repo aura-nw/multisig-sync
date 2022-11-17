@@ -22,6 +22,7 @@ export class SyncRestProcessor {
         MESSAGE_ACTION.MSG_REDELEGATE,
         MESSAGE_ACTION.MSG_UNDELEGATE,
         MESSAGE_ACTION.MSG_WITHDRAW_REWARDS,
+        MESSAGE_ACTION.MSG_VOTE,
     ];
     private horoscopeApi;
 
@@ -201,6 +202,14 @@ export class SyncRestProcessor {
                                         // listTxMessages.push(txMessage);
                                     }
                                 }
+                                listTxMessages.push(txMessage);
+                                break;
+                            case MESSAGE_ACTION.MSG_VOTE:
+                                if (!safes[msg.voter]) break;
+                                txMessage.typeUrl = MESSAGE_ACTION.MSG_VOTE;
+                                txMessage.fromAddress = msg.voter;
+                                txMessage.amount = null;
+                                txMessage.toAddress = null;
                                 listTxMessages.push(txMessage);
                                 break;
                         }
