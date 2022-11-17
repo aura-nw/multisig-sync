@@ -1,3 +1,4 @@
+import { SafeInfo } from 'src/dtos/responses/get-safe-by-chain.response';
 import { IBaseRepository } from './ibase.repository';
 
 export interface ISafeRepository extends IBaseRepository {
@@ -5,5 +6,5 @@ export interface ISafeRepository extends IBaseRepository {
 
     findSafeNotInListAddress(listAddress: string[]);
 
-    findSafeByInternalChainId(internalChainId: string);
+    findSafeByInternalChainId(internalChainId: string, lastSafeId?: number): Promise<SafeInfo[]>;
 }
