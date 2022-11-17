@@ -41,7 +41,10 @@ export class SyncRestProcessor {
         this.horoscopeApi = this.configService.get('HOROSCOPE_API');
     }
 
-    @Process('sync-tx-by-height')
+    @Process({
+        name: 'sync-tx-by-height',
+        concurrency: 10
+    })
     async handleQueryTxByHeight(job: Job) {
         this.logger.log(`Handle Job: ${JSON.stringify(job.data)}`);
         let syncTxs: any[] = [], syncTxMessages: any[] = [], listQueries: any[] = [];
