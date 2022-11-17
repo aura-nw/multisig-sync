@@ -23,6 +23,7 @@ export class MultisigTransactionRepository extends BaseRepository implements IMu
             .where('multisigTransaction.status = :status', { status })
             .andWhere('multisigTransaction.txHash != \'\'')
             .andWhere('multisigTransaction.internalChainId = :internalChainId', { internalChainId })
+            .limit(10)
             .select([
                 'multisigTransaction.txHash as txHash'
             ]);
