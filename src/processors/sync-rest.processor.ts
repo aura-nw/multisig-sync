@@ -46,11 +46,11 @@ export class SyncRestProcessor {
         concurrency: 10
     })
     async handleQueryTxByHeight(job: Job) {
-        this.logger.log(`Handle Job: ${JSON.stringify(job.data)}`);
+        // this.logger.log(`Handle Job: ${JSON.stringify(job.data)}`);
         let syncTxs: any[] = [], syncTxMessages: any[] = [], listQueries: any[] = [];
         let result = [];
         let height = job.data.height;
-        let safes = job.data.safes;
+        let safes = job.data.safeAddresses;
         let network = job.data.network;
         const param = `transaction?chainid=${network.chainId}&blockHeight=${height}&pageLimit=100`;
         let urlToCall = param;

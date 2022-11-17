@@ -9,18 +9,20 @@ import {
     IAuraTransactionRepository,
     IChainRepository,
     IMultisigTransactionRepository,
-    ISafeRepository
+    ISafeRepository,
 } from '../../repositories';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { RedisService } from '../../shared/services/redis.service';
+import { SafeInfo } from '../../dtos/responses/get-safe-by-chain.response';
 const _ = require('lodash');
 
 @Injectable()
 export class SyncRestService implements ISyncRestService {
     private readonly _logger = new Logger(SyncRestService.name);
     private chain;
-    private listSafeAddress;
+    // private listSafeAddress;
+    private listSafe: SafeInfo[];
     private listChainIdSubscriber;
     private cacheKey;
     private horoscopeApi;
@@ -37,11 +39,13 @@ export class SyncRestService implements ISyncRestService {
         private chainRepository: IChainRepository,
         @Inject(REPOSITORY_INTERFACE.IMULTISIG_TRANSACTION_REPOSITORY)
         private multisigTransactionRepository: IMultisigTransactionRepository,
-        @InjectQueue('sync-rest') private readonly syncQueue: Queue
+        @InjectQueue('sync-rest') private readonly syncQueue: Queue,
     ) {
         this._logger.log(
             '============== Constructor Sync Rest Service ==============',
         );
+
+        this.listSafe = [];
         this.listChainIdSubscriber = JSON.parse(
             this.configService.get('CHAIN_SUBCRIBE'),
         );
@@ -50,53 +54,76 @@ export class SyncRestService implements ISyncRestService {
         this.syncRest();
     }
 
-    @Cron(CronExpression.EVERY_30_SECONDS)
+    @Cron(CronExpression.EVERY_10_SECONDS)
     async syncRest() {
         [this.chain, this.redisClient] = await Promise.all([
-            this.chainRepository.findChainByChainId(this.listChainIdSubscriber[0]),
-            this.redisService.getRedisClient(this.redisClient)
+            this.chainRepository.findChainByChainId(
+                this.listChainIdSubscriber[0],
+            ),
+            this.redisService.getRedisClient(this.redisClient),
         ]);
-        this.listSafeAddress = await this.safeRepository.findSafeByInternalChainId(this.chain.id);
+        const newSafes = await this.safeRepository.findSafeByInternalChainId(
+            this.chain.id,
+            this.listSafe.length > 0
+                ? this.listSafe[0].id
+                : 0,
+        );
+        this.listSafe.push(...newSafes);
         //add address for each chain
-        this.listSafeAddress.map((safe) => {
-            if (this.chain && safe.safeAddress) {
-                if (this.chain['safeAddresses'])
-                    this.chain['safeAddresses'].push(safe);
-                else this.chain['safeAddresses'] = [safe];
-            }
-        });
-        if (this.chain.rest.slice(-1) !== '/') this.chain.rest = this.chain.rest + '/';
+        // this.listSafeAddress.map((safe) => {
+        //     if (this.chain && safe.safeAddress) {
+        //         if (this.chain['safeAddresses'])
+        //             this.chain['safeAddresses'].push(safe);
+        //         else this.chain['safeAddresses'] = [safe];
+        //     }
+        // });
 
-        await this.findTxByHash(this.chain);
-        if (this.chain.safeAddresses !== undefined) {
-            this.syncFromNetwork(this.chain, this.chain.safeAddresses);
+        if (this.chain.rest.slice(-1) !== '/')
+            this.chain.rest = this.chain.rest + '/';
+
+        // remove await findTxByHash
+        // await this.findTxByHash(this.chain);
+        this.findTxByHash(this.chain);
+        if (this.listSafe.length > 0) {
+            this.syncFromNetwork(this.chain, this.listSafe);
         }
     }
 
-    async getLatestBlockHeight(chainId) {
-        const lastHeight = await this.auraTxRepository.getLatestBlockHeight(chainId);
-        return lastHeight;
-    }
-
-    async syncFromNetwork(network, listSafes) {
+    async syncFromNetwork(network, listSafes: SafeInfo[]) {
         try {
-            const safes = _.keyBy(listSafes, 'safeAddress');
+            const safeAddresses = _.keyBy(listSafes, 'safeAddress');
             // Get the current latest block height on network
-            let height = (await axios.default.get(
-                this.horoscopeApi + `block?chainid=${network.chainId}&pageLimit=1`
-            )).data.data.blocks[0].block.header.height;
+            let height = (
+                await axios.default.get(
+                    this.horoscopeApi +
+                        `block?chainid=${network.chainId}&pageLimit=1`,
+                )
+            ).data.data.blocks[0].block.header.height;
+
             // Get the last block height from cache (if exists) minus 2 blocks
             let cacheLastHeight = await this.redisClient.get(this.cacheKey);
+
+            // get the last block height from db
             let lastHeightFromDB = await this.getLatestBlockHeight(network.id);
+
+            // if height from db is zero, then set lastHeightFromDB = height in network - 15 blocks
             if (lastHeightFromDB === 0) lastHeightFromDB = height - 15;
-            let lastHeight = (cacheLastHeight ? cacheLastHeight : lastHeightFromDB) - 5;
-            this._logger.log(`Last height from cache: ${cacheLastHeight}, query from ${lastHeight} to current height: ${height}`);
+
+            // TODO: why -5?
+            // let lastHeight = (cacheLastHeight ? cacheLastHeight : lastHeightFromDB) - 5;
+            let lastHeight = cacheLastHeight
+                ? cacheLastHeight
+                : lastHeightFromDB;
+            this._logger.log(
+                `Last height from cache: ${cacheLastHeight}, query from ${lastHeight} to current height: ${height}`,
+            );
 
             // Query lost transactions
+            // TODO: range from lastHeight to height too big?
             for (let i = lastHeight; i <= height; i++) {
                 this.syncQueue.add('sync-tx-by-height', {
                     height: i,
-                    safes,
+                    safeAddresses,
                     network,
                 });
             }
@@ -108,31 +135,55 @@ export class SyncRestService implements ISyncRestService {
         }
     }
 
+    async getLatestBlockHeight(chainId) {
+        const lastHeight = await this.auraTxRepository.getLatestBlockHeight(
+            chainId,
+        );
+        return lastHeight;
+    }
+
     async updateMultisigTxStatus(listData) {
         let queries = [];
-        listData.map((data) => queries.push(this.multisigTransactionRepository.updateMultisigTransactionsByHashes(
-            data, this.chain.id
-        )));
+        listData.map((data) =>
+            queries.push(
+                this.multisigTransactionRepository.updateMultisigTransactionsByHashes(
+                    data,
+                    this.chain.id,
+                ),
+            ),
+        );
         await Promise.all(queries);
     }
 
     async findTxByHash(network) {
         let listQueries: any[] = [];
-        const listPendingTx = await this.multisigTransactionRepository.findPendingMultisigTransaction(this.chain.id);
+        const listPendingTx =
+            await this.multisigTransactionRepository.findPendingMultisigTransaction(
+                this.chain.id,
+            );
         if (listPendingTx.length > 0) {
-            listPendingTx.map(tx =>
-                listQueries.push(axios.default.get(
-                    this.horoscopeApi + `transaction?chainid=${network.chainId}&txHash=${tx.txHash}&pageLimit=100`
-                ))
+            listPendingTx.map((tx) =>
+                listQueries.push(
+                    axios.default.get(
+                        this.horoscopeApi +
+                            `transaction?chainid=${network.chainId}&txHash=${tx.txHash}&pageLimit=100`,
+                    ),
+                ),
             );
 
             let result: any = await Promise.all(listQueries);
-            await this.updateMultisigTxStatus(result.map(res => {
-                return {
-                    code: parseInt(res.data.data.transactions[0].tx_response.code, 10),
-                    txHash: res.data.data.transactions[0].tx_response.txhash
-                }
-            }));
+            await this.updateMultisigTxStatus(
+                result.filter((res) => res.data.data.count > 0).map((res) => {
+                    return {
+                        code: parseInt(
+                            res.data.data.transactions[0].tx_response.code,
+                            10,
+                        ),
+                        txHash: res.data.data.transactions[0].tx_response
+                            .txhash,
+                    };
+                }),
+            );
         }
     }
 }

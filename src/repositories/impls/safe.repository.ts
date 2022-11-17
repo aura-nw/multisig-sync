@@ -2,8 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaseRepository } from './base.repository';
 import { ObjectLiteral, Repository } from 'typeorm';
+import { plainToInstance } from 'class-transformer';
 import { ENTITIES_CONFIG } from '../../module.config';
 import { ISafeRepository } from '../isafe.repository';
+import { SafeInfo } from 'src/dtos/responses/get-safe-by-chain.response';
 
 @Injectable()
 export class SafeRepository extends BaseRepository implements ISafeRepository {
@@ -35,14 +37,17 @@ export class SafeRepository extends BaseRepository implements ISafeRepository {
         return res;
     }
 
-    async findSafeByInternalChainId(internalChainId: string) {
-        let query = this.repos.createQueryBuilder('safe');
-        query = query
-            .select('safe.safeAddress as safeAddress, safe.internalChainId as internalChainId')
-            .where('safe.internalChainId = :internalChainId', {
+    async findSafeByInternalChainId(internalChainId: string, lastSafeId?: number): Promise<SafeInfo[]> {
+        let query = this.repos.createQueryBuilder()
+            .select('safeAddress, id')
+            .where('internalChainId = :internalChainId', {
                 internalChainId,
-            });
+            })
+            .andWhere('safeAddress != \'\'')
+            .orderBy('id', 'DESC');
+
+        if (lastSafeId) query.andWhere('id > :lastSafeId', { lastSafeId });
         let res = await query.getRawMany();
-        return res;
+        return plainToInstance(SafeInfo, res);
     }
 }
