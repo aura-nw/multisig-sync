@@ -122,11 +122,10 @@ export class SyncRestProcessor {
                                 txMessage.toAddress = msg.delegator_address;
                                 txMessage.amount = null;
                                 if (res.tx_response.logs.length > 0 ) {
-                                    let coin_received_delegate = res.tx_response.logs[index].events
-                                    .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
-                                    if (coin_received_delegate && coin_received_delegate.find(x => x.value === msg.delegator_address)) {
-                                        const index_reward = coin_received_delegate.findIndex(x => x.value === msg.delegator_address);
-                                        const claimed_reward = coin_received_delegate[index_reward + 1].value.match(/\d+/g)[0];
+                                    const coin_received_attrs = this.getCoinReceiveAttribute(res.tx_response.logs[index]);
+                                    if (coin_received_attrs && coin_received_attrs.find(x => x.value === msg.delegator_address)) {
+                                        const index_reward = coin_received_attrs.findIndex(x => x.value === msg.delegator_address);
+                                        const claimed_reward = coin_received_attrs[index_reward + 1].value.match(/\d+/g)[0];
                                         txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
                                         // listTxMessages.push(txMessage);
                                     }
@@ -143,13 +142,12 @@ export class SyncRestProcessor {
                                 txMessage.amount = null;
 
                                 if (res.tx_response.logs.length > 0 ) {
-                                    let coin_received_redelegate = res.tx_response.logs[index].events
-                                    .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
+                                    const coin_received_attrs = this.getCoinReceiveAttribute(res.tx_response.logs[index]);
 
-                                    if (coin_received_redelegate && coin_received_redelegate.find(x => x.value === msg.delegator_address)) {
+                                    if (coin_received_attrs && coin_received_attrs.find(x => x.value === msg.delegator_address)) {
                                         const paramVal = this.configService.get('PARAM_GET_VALIDATOR') + valSrcAddr;
                                         let resultVal: any = await axios.default.get(network.rest + paramVal);
-                                        let redelegate_claimed_reward = coin_received_redelegate.find(x => x.key === CONST_CHAR.AMOUNT);
+                                        let redelegate_claimed_reward = coin_received_attrs.find(x => x.key === CONST_CHAR.AMOUNT);
                                         txMessage.amount = redelegate_claimed_reward.value.match(/\d+/g)[0];
                                         if (Number(resultVal.data.validator.commission.commission_rates.rate) !== 1) {
                                             txMessage.fromAddress = valSrcAddr;
@@ -158,9 +156,9 @@ export class SyncRestProcessor {
                                             txMessage.fromAddress = valDstAddr;
                                             // listTxMessages.push(txMessage);
                                         }
-                                        if (coin_received_redelegate.length > 2) {
+                                        if (coin_received_attrs.length > 2) {
                                             txMessage.fromAddress = valDstAddr;
-                                            txMessage.amount = coin_received_redelegate[3].value.match(/\d+/g)[0];
+                                            txMessage.amount = coin_received_attrs[3].value.match(/\d+/g)[0];
                                             // listTxMessages.push(txMessage);
                                         }
                                     }
@@ -175,11 +173,10 @@ export class SyncRestProcessor {
                                 txMessage.amount = null;
 
                                 if (res.tx_response.logs.length > 0 ) {
-                                    let coin_received_unbond = res.tx_response.logs[index].events
-                                        .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
-                                    if (coin_received_unbond && coin_received_unbond.find(x => x.value === msg.delegator_address)) {
-                                        const index_reward = coin_received_unbond.findIndex(x => x.value === msg.delegator_address);
-                                        const claimed_reward = coin_received_unbond[index_reward + 1].value.match(/\d+/g)[0];
+                                    const coin_received_attrs = this.getCoinReceiveAttribute(res.tx_response.logs[index]);
+                                    if (coin_received_attrs && coin_received_attrs.find(x => x.value === msg.delegator_address)) {
+                                        const index_reward = coin_received_attrs.findIndex(x => x.value === msg.delegator_address);
+                                        const claimed_reward = coin_received_attrs[index_reward + 1].value.match(/\d+/g)[0];
                                         txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
                                         // listTxMessages.push(txMessage);
                                     }
@@ -194,10 +191,10 @@ export class SyncRestProcessor {
                                 txMessage.amount = null;
 
                                 if (res.tx_response.logs.length > 0 ) {
-                                    const coin_received_claim = res.tx_response.logs[index].events
-                                        .find(e => e.type === CONST_CHAR.COIN_RECEIVED).attributes;
-                                    if (coin_received_claim && coin_received_claim.find(x => x.value === msg.delegator_address)) {
-                                        txMessage.amount = coin_received_claim.find(x => x.key === CONST_CHAR.AMOUNT)
+                                    const coin_received_attrs = this.getCoinReceiveAttribute(res.tx_response.logs[index]);
+                                    console.log(coin_received_attrs);
+                                    if (coin_received_attrs && coin_received_attrs.find(x => x.value === msg.delegator_address)) {
+                                        txMessage.amount = coin_received_attrs.find(x => x.key === CONST_CHAR.AMOUNT)
                                             .value.match(/\d+/g)[0];
                                         // listTxMessages.push(txMessage);
                                     }
@@ -287,4 +284,10 @@ export class SyncRestProcessor {
         )));
         await Promise.all(queries);
     }
+
+    getCoinReceiveAttribute(log: any) {
+        const coin_received_event = log.events.find(e => e.type === CONST_CHAR.COIN_RECEIVED);
+        if (coin_received_event) return coin_received_event.attributes;
+        return null;
+    } 
 }
