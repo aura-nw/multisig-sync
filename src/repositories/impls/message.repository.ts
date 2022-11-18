@@ -17,7 +17,7 @@ export class MessageRepository
         super(repos);
     }
 
-    async insertBulkTransaction(listTxMessages: any[]) {
+    async insertBulkMessage(listTxMessages: any[]) {
         listTxMessages = listTxMessages.filter(txMessage => txMessage.auraTxId !== 0);
         console.log(listTxMessages);
         if (listTxMessages.length <= 0) return;

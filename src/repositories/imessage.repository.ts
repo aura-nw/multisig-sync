@@ -5,5 +5,5 @@ export interface IMessageRepository extends IBaseRepository {
      * Insert TxMessages corresponding to a Tx
      * @param listTxMessages
      */
-    insertBulkTransaction(listTxMessages: any[]);
+     insertBulkMessage(listTxMessages: any[]);
 }
