@@ -54,7 +54,41 @@ export class SyncRestService implements ISyncRestService {
         this.syncRest();
     }
 
-    @Cron(CronExpression.EVERY_10_SECONDS)
+    @Cron(CronExpression.EVERY_30_SECONDS)
+    async findTxByHash() {
+        try {
+            const listPendingTx =
+                await this.multisigTransactionRepository.findPendingMultisigTransaction(
+                    this.chain.id,
+                );
+            const result = await Promise.all(
+                listPendingTx.map((tx) =>
+                    axios.default.get(
+                        this.horoscopeApi +
+                            `transaction?chainid=${this.chain.chainId}&txHash=${tx.txHash}&pageLimit=100`,
+                    ),
+                ),
+            );
+            const txs = result
+                .filter((res) => res.data.data.transactions.length > 0)
+                .map((tx) => {
+                    return {
+                        code: parseInt(
+                            tx.data.data.transactions[0].tx_response.code,
+                            10,
+                        ),
+                        txHash: tx.data.data.transactions[0].tx_response.txhash,
+                    };
+                });
+            if (txs.length > 0) {
+                await this.updateMultisigTxStatus(txs);
+            }
+        } catch (error) {
+            this._logger.error('findTxByHash: ', error);
+        }
+    }
+
+    @Cron(CronExpression.EVERY_5_SECONDS)
     async syncRest() {
         [this.chain, this.redisClient] = await Promise.all([
             this.chainRepository.findChainByChainId(
@@ -81,7 +115,7 @@ export class SyncRestService implements ISyncRestService {
 
         // remove await findTxByHash
         // await this.findTxByHash(this.chain);
-        this.findTxByHash(this.chain);
+        // this.findTxByHash(this.chain);
         if (this.listSafe.length > 0) {
             this.syncFromNetwork(this.chain, this.listSafe);
         }
@@ -109,15 +143,19 @@ export class SyncRestService implements ISyncRestService {
 
             // TODO: why -5?
             // let lastHeight = (cacheLastHeight ? cacheLastHeight : lastHeightFromDB) - 5;
-            let lastHeight = cacheLastHeight
+            let lastHeight = Number(cacheLastHeight
                 ? cacheLastHeight
-                : lastHeightFromDB;
+                : lastHeightFromDB);
             this._logger.log(
                 `Last height from cache: ${cacheLastHeight}, query from ${lastHeight} to current height: ${height}`,
             );
 
             // Query lost transactions
             // TODO: range from lastHeight to height too big?
+            height = height - lastHeight > 10 ? lastHeight + 10 : height;
+
+            // set cache last height to the latest block height
+            await this.redisClient.set(this.cacheKey, height);
             for (let i = lastHeight; i <= height; i++) {
                 this.syncQueue.add('sync-tx-by-height', {
                     height: i,
@@ -126,8 +164,6 @@ export class SyncRestService implements ISyncRestService {
                 });
             }
 
-            // set cache last height to the latest block height
-            await this.redisClient.set(this.cacheKey, height);
         } catch (error) {
             this._logger.error('syncFromNetwork: ', error);
         }
@@ -151,38 +187,5 @@ export class SyncRestService implements ISyncRestService {
             ),
         );
         await Promise.all(queries);
-    }
-
-    async findTxByHash(network) {
-        try {
-            const listPendingTx =
-                await this.multisigTransactionRepository.findPendingMultisigTransaction(
-                    this.chain.id,
-                );
-            const result = await Promise.all(
-                listPendingTx.map((tx) =>
-                    axios.default.get(
-                        this.horoscopeApi +
-                            `transaction?chainid=${network.chainId}&txHash=${tx.txHash}&pageLimit=100`,
-                    ),
-                ),
-            );
-            const txs = result
-                .filter((res) => res.data.data.transactions.length > 0)
-                .map((tx) => {
-                    return {
-                        code: parseInt(
-                            tx.data.data.transactions[0].tx_response.code,
-                            10,
-                        ),
-                        txHash: tx.data.data.transactions[0].tx_response.txhash,
-                    };
-                });
-            if (txs.length > 0) {
-                await this.updateMultisigTxStatus(txs);
-            }
-        } catch (error) {
-            this._logger.error('findTxByHash: ', error);
-        }
     }
 }
