@@ -228,7 +228,7 @@ export class SyncWebsocketService implements ISyncWebsocketService {
                 let txs = await this.auraTxRepository.insertBulkTransaction(syncTxs);
                 let id = txs.insertId;
                 syncTxMessages.map(txMessage => txMessage.map(tm => tm.auraTxId = id++));
-                await this.messageRepository.insertBulkTransaction(syncTxMessages.flat());
+                await this.messageRepository.insertBulkMessage(syncTxMessages.flat());
             }
         } catch (error) {
             this._logger.error(error);

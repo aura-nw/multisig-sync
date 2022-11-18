@@ -237,10 +237,19 @@ export class SyncRestProcessor {
             }
 
             if (syncTxs.length > 0) {
+
+                // Save Txs
                 let txs = await this.auraTxRepository.insertBulkTransaction(syncTxs);
                 let id = txs.insertId;
+
+                // Save TxMessages
                 syncTxMessages.map(txMessage => txMessage.map(tm => tm.auraTxId = id++));
-                await this.messageRepository.insertBulkTransaction(syncTxMessages.flat());
+                await this.messageRepository.insertBulkMessage(syncTxMessages.flat());
+
+                // Update status of multisig txs
+                // TODO: Use nestjs instead of mysql trigger
+                // const affectedRows = await this.multisigTransactionRepository.updateMultisigTxStatusByAuraTx(syncTxs);
+                // this.logger.log('Affected rows: ' + affectedRows);
             }
         } catch (error) {
             this.logger.error(error);
