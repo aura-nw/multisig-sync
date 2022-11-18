@@ -54,7 +54,7 @@ export class SyncRestService implements ISyncRestService {
         this.syncRest();
     }
 
-    @Cron(CronExpression.EVERY_30_SECONDS)
+    @Cron(CronExpression.EVERY_5_MINUTES)
     async findTxByHash() {
         try {
             const listPendingTx =
