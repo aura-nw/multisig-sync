@@ -128,10 +128,10 @@ export class SyncRestProcessor {
                                         const index_reward = coin_received_delegate.findIndex(x => x.value === msg.delegator_address);
                                         const claimed_reward = coin_received_delegate[index_reward + 1].value.match(/\d+/g)[0];
                                         txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                        listTxMessages.push(txMessage);
+                                        // listTxMessages.push(txMessage);
                                     }
                                 }
-                                // listTxMessages.push(txMessage);
+                                listTxMessages.push(txMessage);
                                 break;
                             case MESSAGE_ACTION.MSG_REDELEGATE:
                                 if (!safes[msg.delegator_address]) break;
