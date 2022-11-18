@@ -152,7 +152,6 @@ export class SyncRestService implements ISyncRestService {
 
             // Query lost transactions
             // TODO: range from lastHeight to height too big?
-            height = height - lastHeight > 10 ? lastHeight + 10 : height;
 
             // set cache last height to the latest block height
             await this.redisClient.set(this.cacheKey, height);
