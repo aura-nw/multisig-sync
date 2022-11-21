@@ -20,6 +20,7 @@ export class SyncRestProcessor {
         private commonService: CommonService,
         @Inject(REPOSITORY_INTERFACE.IMULTISIG_TRANSACTION_REPOSITORY)
         private multisigTransactionRepository: IMultisigTransactionRepository
+        
     ) {
         this.logger.log(
             '============== Constructor Sync Rest Processor Service ==============',
