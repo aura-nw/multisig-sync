@@ -1,4 +1,3 @@
-import { StargateClient } from '@cosmjs/stargate';
 import * as axios from 'axios';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -101,21 +100,10 @@ export class SyncRestService implements ISyncRestService {
             this.listSafe.length > 0 ? this.listSafe[0].id : 0,
         );
         this.listSafe.push(...newSafes);
-        //add address for each chain
-        // this.listSafeAddress.map((safe) => {
-        //     if (this.chain && safe.safeAddress) {
-        //         if (this.chain['safeAddresses'])
-        //             this.chain['safeAddresses'].push(safe);
-        //         else this.chain['safeAddresses'] = [safe];
-        //     }
-        // });
 
         if (this.chain.rest.slice(-1) !== '/')
             this.chain.rest = this.chain.rest + '/';
 
-        // remove await findTxByHash
-        // await this.findTxByHash(this.chain);
-        // this.findTxByHash(this.chain);
         if (this.listSafe.length > 0) {
             this.syncFromNetwork(this.chain, this.listSafe);
         }
@@ -134,15 +122,15 @@ export class SyncRestService implements ISyncRestService {
 
             // Get the last block height from cache (if exists) minus 2 blocks
             let cacheLastHeight = await this.redisClient.get(this.cacheKey);
+            // if height from cache is too far behind current height, then set cacheLastHeight = height in network - 19 blocks
+            if (cacheLastHeight)
+                if (height - cacheLastHeight > 50000) cacheLastHeight = height - 19;
 
             // get the last block height from db
             let lastHeightFromDB = await this.getLatestBlockHeight(network.id);
+            // if height from db is zero or is too far behind current height, then set lastHeightFromDB = height in network - 19 blocks
+            if (lastHeightFromDB === 0 || height - lastHeightFromDB > 50000) lastHeightFromDB = height - 19;
 
-            // if height from db is zero, then set lastHeightFromDB = height in network - 15 blocks
-            if (lastHeightFromDB === 0) lastHeightFromDB = height - 15;
-
-            // TODO: why -5?
-            // let lastHeight = (cacheLastHeight ? cacheLastHeight : lastHeightFromDB) - 5;
             let lastHeight = Number(cacheLastHeight
                 ? cacheLastHeight
                 : lastHeightFromDB);

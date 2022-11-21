@@ -27,6 +27,8 @@ export enum CONST_CHAR {
     COIN_SPENT = 'coin_spent',
     SPENDER = 'spender',
     AMOUNT = 'amount',
+    WITHDRAW_REWARDS = 'withdraw_rewards',
+    VALIDATOR = 'validator',
 }
 
 export enum TRANSACTION_STATUS {
