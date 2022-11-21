@@ -141,8 +141,6 @@ export class SyncRestService implements ISyncRestService {
             // if height from db is zero, then set lastHeightFromDB = height in network - 15 blocks
             if (lastHeightFromDB === 0) lastHeightFromDB = height - 15;
 
-            // TODO: why -5?
-            // let lastHeight = (cacheLastHeight ? cacheLastHeight : lastHeightFromDB) - 5;
             let lastHeight = Number(cacheLastHeight
                 ? cacheLastHeight
                 : lastHeightFromDB);
