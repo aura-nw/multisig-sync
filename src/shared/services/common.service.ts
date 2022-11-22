@@ -141,6 +141,7 @@ export class CommonService {
                             txMessage.typeUrl = MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
                             txMessage.fromAddress = msg.validator_address;
                             txMessage.toAddress = msg.delegator_address;
+                            txMessage.amount = null;
                             if (txs.tx_response.logs.length > 0) {
                                 if (txs.tx_response.logs[index].events.find(event => event.type === CONST_CHAR.WITHDRAW_REWARDS)) {
                                     txMessage.amount = txs.tx_response.logs[index]
