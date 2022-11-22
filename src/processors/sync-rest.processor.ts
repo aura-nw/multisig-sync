@@ -109,10 +109,4 @@ export class SyncRestProcessor {
         )));
         await Promise.all(queries);
     }
-
-    getCoinReceiveAttribute(log: any) {
-        const coin_received_event = log.events.find(e => e.type === CONST_CHAR.COIN_RECEIVED);
-        if (coin_received_event) return coin_received_event.attributes;
-        return null;
-    } 
 }
