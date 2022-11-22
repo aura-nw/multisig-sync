@@ -2,38 +2,24 @@ import { OnQueueActive, OnQueueCompleted, OnQueueError, OnQueueFailed, Process, 
 import { Logger, Inject } from "@nestjs/common";
 import * as axios from 'axios';
 import { Job } from "bull";
-import { CONST_CHAR, MESSAGE_ACTION, TRANSACTION_STATUS } from "../common";
-import { AuraTx, Message } from "../entities";
+import { CommonService } from "../shared/services/common.service";
+import { CONST_CHAR } from "../common";
 import { REPOSITORY_INTERFACE } from "../module.config";
 import {
-    IAuraTransactionRepository,
-    IMessageRepository,
-    IMultisigTransactionRepository,
+    IMultisigTransactionRepository
 } from "../repositories";
 import { ConfigService } from "../shared/services/config.service";
 
 @Processor('sync-rest')
 export class SyncRestProcessor {
     private readonly logger = new Logger(SyncRestProcessor.name);
-    private listMessageAction = [
-        MESSAGE_ACTION.MSG_MULTI_SEND,
-        MESSAGE_ACTION.MSG_SEND,
-        MESSAGE_ACTION.MSG_DELEGATE,
-        MESSAGE_ACTION.MSG_REDELEGATE,
-        MESSAGE_ACTION.MSG_UNDELEGATE,
-        MESSAGE_ACTION.MSG_WITHDRAW_REWARDS,
-        MESSAGE_ACTION.MSG_VOTE,
-    ];
     private horoscopeApi;
 
     constructor(
         private configService: ConfigService,
-        @Inject(REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY)
-        private auraTxRepository: IAuraTransactionRepository,
+        private commonService: CommonService,
         @Inject(REPOSITORY_INTERFACE.IMULTISIG_TRANSACTION_REPOSITORY)
-        private multisigTransactionRepository: IMultisigTransactionRepository,
-        @Inject(REPOSITORY_INTERFACE.IMESSAGE_REPOSITORY)
-        private messageRepository: IMessageRepository,
+        private multisigTransactionRepository: IMultisigTransactionRepository
     ) {
         this.logger.log(
             '============== Constructor Sync Rest Processor Service ==============',
@@ -78,9 +64,6 @@ export class SyncRestProcessor {
 
         try {
             if (result.length > 0) {
-                // if (result.filter(res => res.code !== 0).length > 0)
-                //     this.checkTxFail(result.filter(res => res.code !== 0), network);
-
                 result.map(res => {
                     listQueries.push(axios.default.get(
                         this.horoscopeApi + `transaction?chainid=${network.chainId}&txHash=${res.txHash}&pageLimit=100`
@@ -88,165 +71,7 @@ export class SyncRestProcessor {
                 });
                 result = await Promise.all(listQueries);
 
-                await Promise.all(result.map(res => res.data.data.transactions[0]).map(async res => {
-                    let listTxMessages: any[] = [];
-                    await Promise.all(res.tx.body.messages.filter(msg =>
-                        this.listMessageAction.includes(msg['@type'])
-                        //  && res.tx_response.code === '0'
-                    ).map(async (msg, index) => {
-                        const type = msg['@type'];
-                        let txMessage = new Message();
-                        switch (type) {
-                            case MESSAGE_ACTION.MSG_SEND:
-                                if (!safes[msg.to_address] && !safes[msg.from_address]) break;
-                                txMessage.typeUrl = MESSAGE_ACTION.MSG_SEND;
-                                txMessage.fromAddress = msg.from_address;
-                                txMessage.toAddress = msg.to_address;
-                                txMessage.amount = msg.amount[0].amount;
-                                listTxMessages.push(txMessage);
-                                break;
-                            case MESSAGE_ACTION.MSG_MULTI_SEND:
-                                txMessage.typeUrl = MESSAGE_ACTION.MSG_MULTI_SEND;
-                                txMessage.fromAddress = msg.inputs[0].address;
-                                msg.outputs.filter(output => safes[msg.inputs[0].address] || safes[output.address])
-                                    .map(output => {
-                                        txMessage.toAddress = output.address;
-                                        txMessage.amount = output.coins[0].amount;
-                                        listTxMessages.push(txMessage);
-                                    });
-                                break;
-                            case MESSAGE_ACTION.MSG_DELEGATE:
-                                if (!safes[msg.delegator_address]) break;
-                                txMessage.typeUrl = MESSAGE_ACTION.MSG_DELEGATE;
-                                txMessage.fromAddress = msg.validator_address;
-                                txMessage.toAddress = msg.delegator_address;
-                                txMessage.amount = null;
-                                if (res.tx_response.logs.length > 0 ) {
-                                    const coin_received_attrs = this.getCoinReceiveAttribute(res.tx_response.logs[index]);
-                                    if (coin_received_attrs && coin_received_attrs.find(x => x.value === msg.delegator_address)) {
-                                        const index_reward = coin_received_attrs.findIndex(x => x.value === msg.delegator_address);
-                                        const claimed_reward = coin_received_attrs[index_reward + 1].value.match(/\d+/g)[0];
-                                        txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                        // listTxMessages.push(txMessage);
-                                    }
-                                }
-                                listTxMessages.push(txMessage);
-                                break;
-                            case MESSAGE_ACTION.MSG_REDELEGATE:
-                                if (!safes[msg.delegator_address]) break;
-                                txMessage.typeUrl = MESSAGE_ACTION.MSG_REDELEGATE;
-                                txMessage.toAddress = msg.delegator_address;
-                                let valSrcAddr = msg.validator_src_address;
-                                let valDstAddr = msg.validator_dst_address;
-                                txMessage.fromAddress = null;
-                                txMessage.amount = null;
-
-                                if (res.tx_response.logs.length > 0 ) {
-                                    const coin_received_attrs = this.getCoinReceiveAttribute(res.tx_response.logs[index]);
-
-                                    if (coin_received_attrs && coin_received_attrs.find(x => x.value === msg.delegator_address)) {
-                                        const paramVal = this.configService.get('PARAM_GET_VALIDATOR') + valSrcAddr;
-                                        let resultVal: any = await axios.default.get(network.rest + paramVal);
-                                        let redelegate_claimed_reward = coin_received_attrs.find(x => x.key === CONST_CHAR.AMOUNT);
-                                        txMessage.amount = redelegate_claimed_reward.value.match(/\d+/g)[0];
-                                        if (Number(resultVal.data.validator.commission.commission_rates.rate) !== 1) {
-                                            txMessage.fromAddress = valSrcAddr;
-                                            // listTxMessages.push(txMessage);
-                                        } else {
-                                            txMessage.fromAddress = valDstAddr;
-                                            // listTxMessages.push(txMessage);
-                                        }
-                                        if (coin_received_attrs.length > 2) {
-                                            txMessage.fromAddress = valDstAddr;
-                                            txMessage.amount = coin_received_attrs[3].value.match(/\d+/g)[0];
-                                            // listTxMessages.push(txMessage);
-                                        }
-                                    }
-                                }
-                                listTxMessages.push(txMessage);
-                                break;
-                            case MESSAGE_ACTION.MSG_UNDELEGATE:
-                                if (!safes[msg.delegator_address]) break;
-                                txMessage.typeUrl = MESSAGE_ACTION.MSG_UNDELEGATE;
-                                txMessage.fromAddress = msg.validator_address;
-                                txMessage.toAddress = msg.delegator_address;
-                                txMessage.amount = null;
-
-                                if (res.tx_response.logs.length > 0 ) {
-                                    const coin_received_attrs = this.getCoinReceiveAttribute(res.tx_response.logs[index]);
-                                    if (coin_received_attrs && coin_received_attrs.find(x => x.value === msg.delegator_address)) {
-                                        const index_reward = coin_received_attrs.findIndex(x => x.value === msg.delegator_address);
-                                        const claimed_reward = coin_received_attrs[index_reward + 1].value.match(/\d+/g)[0];
-                                        txMessage.amount = claimed_reward === '0' || index_reward < 0 ? '0' : claimed_reward;
-                                        // listTxMessages.push(txMessage);
-                                    }
-                                }
-                                listTxMessages.push(txMessage);
-                                break;
-                            case MESSAGE_ACTION.MSG_WITHDRAW_REWARDS:
-                                if (!safes[msg.delegator_address]) break;
-                                txMessage.typeUrl = MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
-                                txMessage.fromAddress = msg.validator_address;
-                                txMessage.toAddress = msg.delegator_address;
-                                txMessage.amount = null;
-
-                                if (res.tx_response.logs.length > 0 ) {
-                                    const coin_received_attrs = this.getCoinReceiveAttribute(res.tx_response.logs[index]);
-                                    console.log(coin_received_attrs);
-                                    if (coin_received_attrs && coin_received_attrs.find(x => x.value === msg.delegator_address)) {
-                                        txMessage.amount = coin_received_attrs.find(x => x.key === CONST_CHAR.AMOUNT)
-                                            .value.match(/\d+/g)[0];
-                                        // listTxMessages.push(txMessage);
-                                    }
-                                }
-                                listTxMessages.push(txMessage);
-                                break;
-                            case MESSAGE_ACTION.MSG_VOTE:
-                                if (!safes[msg.voter]) break;
-                                txMessage.typeUrl = MESSAGE_ACTION.MSG_VOTE;
-                                txMessage.fromAddress = msg.voter;
-                                txMessage.amount = null;
-                                txMessage.toAddress = null;
-                                listTxMessages.push(txMessage);
-                                break;
-                        }
-                    }));
-
-                    if (listTxMessages.length > 0) {
-                        syncTxMessages.push(listTxMessages);
-                        let auraTx = new AuraTx();
-                        auraTx.txHash = res.tx_response.txhash;
-                        auraTx.height = parseInt(res.tx_response.height, 10);
-                        auraTx.code = res.tx_response.code;
-                        auraTx.gasWanted = parseInt(res.tx_response.gas_wanted, 10);
-                        auraTx.gasUsed = parseInt(res.tx_response.gas_used, 10);
-                        auraTx.fee = parseInt(res.tx.auth_info.fee.amount[0].amount, 10);
-                        auraTx.rawLogs = res.tx_response.raw_log;
-                        auraTx.fromAddress = listTxMessages[0].fromAddress;
-                        auraTx.toAddress = listTxMessages[0].toAddress;
-                        auraTx.denom = network.denom;
-                        auraTx.timeStamp = new Date(res.tx_response.timestamp);
-                        auraTx.internalChainId = network.id;
-                        syncTxs.push(auraTx);
-                    }
-                }));
-                this.logger.log('REST Qualified Txs: ' + JSON.stringify(syncTxs));
-            }
-
-            if (syncTxs.length > 0) {
-
-                // Save Txs
-                let txs = await this.auraTxRepository.insertBulkTransaction(syncTxs);
-                let id = txs.insertId;
-
-                // Save TxMessages
-                syncTxMessages.map(txMessage => txMessage.map(tm => tm.auraTxId = id++));
-                await this.messageRepository.insertBulkMessage(syncTxMessages.flat());
-
-                // Update status of multisig txs
-                // TODO: Use nestjs instead of mysql trigger
-                // const affectedRows = await this.multisigTransactionRepository.updateMultisigTxStatusByAuraTx(syncTxs);
-                // this.logger.log('Affected rows: ' + affectedRows);
+                await this.commonService.handleTransactions(result.map(res => res.data.data.transactions[0]), safes, network);
             }
         } catch (error) {
             this.logger.error(error);
@@ -284,10 +109,4 @@ export class SyncRestProcessor {
         )));
         await Promise.all(queries);
     }
-
-    getCoinReceiveAttribute(log: any) {
-        const coin_received_event = log.events.find(e => e.type === CONST_CHAR.COIN_RECEIVED);
-        if (coin_received_event) return coin_received_event.attributes;
-        return null;
-    } 
 }

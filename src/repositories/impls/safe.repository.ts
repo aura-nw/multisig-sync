@@ -5,7 +5,7 @@ import { ObjectLiteral, Repository } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { ENTITIES_CONFIG } from '../../module.config';
 import { ISafeRepository } from '../isafe.repository';
-import { SafeInfo } from 'src/dtos/responses/get-safe-by-chain.response';
+import { SafeInfo } from '../../dtos/responses/get-safe-by-chain.response';
 
 @Injectable()
 export class SafeRepository extends BaseRepository implements ISafeRepository {

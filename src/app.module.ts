@@ -21,6 +21,7 @@ import { BullModule } from '@nestjs/bull';
 import { ConfigModule } from '@nestjs/config';
 import { SyncRestProcessor } from './processors/sync-rest.processor';
 import { RedisService } from './shared/services/redis.service';
+import { CommonService } from './shared/services/common.service';
 const entities = [
     ENTITIES_CONFIG.AURA_TX,
     ENTITIES_CONFIG.SAFE,
@@ -77,6 +78,7 @@ const processors = [SyncRestProcessor];
             useClass: SyncRestService,
         },
         RedisService,
+        CommonService,
         // repositories
         {
             provide: REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY,
