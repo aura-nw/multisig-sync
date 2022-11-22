@@ -3,7 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { CONST_CHAR, MESSAGE_ACTION } from "../../common";
 import { AuraTx, Message } from "../../entities";
 import { REPOSITORY_INTERFACE } from '../../module.config';
-import { IAuraTransactionRepository, IMessageRepository } from '../../repositories';
+import { IAuraTransactionRepository, IMessageRepository, IMultisigTransactionRepository } from '../../repositories';
 
 export class CommonService {
     private readonly _logger = new Logger(CommonService.name);
@@ -26,6 +26,8 @@ export class CommonService {
     constructor(
         @Inject(REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY)
         private auraTxRepository: IAuraTransactionRepository,
+        @Inject(REPOSITORY_INTERFACE.IMULTISIG_TRANSACTION_REPOSITORY)
+        private multisigTransactionRepository: IMultisigTransactionRepository,
         @Inject(REPOSITORY_INTERFACE.IMESSAGE_REPOSITORY)
         private messageRepository: IMessageRepository
     ) { }
@@ -193,6 +195,10 @@ export class CommonService {
                     id++;
                 });
                 await this.messageRepository.insertBulkMessage(syncTxMessages.flat());
+
+                // Update status of multisig txs
+                const affectedRows = await this.multisigTransactionRepository.updateMultisigTxStatusByAuraTx(syncTxs);
+                this._logger.log('Affected rows: ' + affectedRows);
             }
         } catch (error) {
             throw error;
