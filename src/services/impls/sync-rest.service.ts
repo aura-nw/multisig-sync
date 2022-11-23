@@ -64,7 +64,7 @@ export class SyncRestService implements ISyncRestService {
                 listPendingTx.map((tx) =>
                     axios.default.get(
                         this.horoscopeApi +
-                            `transaction?chainid=${this.chain.chainId}&txHash=${tx.txHash}&pageLimit=100`,
+                        `transaction?chainid=${this.chain.chainId}&txHash=${tx.txHash}&pageLimit=100`,
                     ),
                 ),
             );
@@ -116,7 +116,7 @@ export class SyncRestService implements ISyncRestService {
             let height = (
                 await axios.default.get(
                     this.horoscopeApi +
-                        `block?chainid=${network.chainId}&pageLimit=1`,
+                    `block?chainid=${network.chainId}&pageLimit=1`,
                 )
             ).data.data.blocks[0].block.header.height;
 
@@ -138,17 +138,21 @@ export class SyncRestService implements ISyncRestService {
                 `Last height from cache: ${cacheLastHeight}, query from ${lastHeight} to current height: ${height}`,
             );
 
-            // Query lost transactions
-            // TODO: range from lastHeight to height too big?
-
             // set cache last height to the latest block height
             await this.redisClient.set(this.cacheKey, height);
             for (let i = lastHeight; i <= height; i++) {
-                this.syncQueue.add('sync-tx-by-height', {
-                    height: i,
-                    safeAddresses,
-                    network,
-                });
+                this.syncQueue.add(
+                    'sync-tx-by-height',
+                    {
+                        height: i,
+                        safeAddresses,
+                        network,
+                    },
+                    {
+                        attempts: 3,
+                        removeOnComplete: true
+                    }
+                );
             }
 
         } catch (error) {
