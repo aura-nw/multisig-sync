@@ -1,32 +1,35 @@
-import {
-    isSearchBySentFromOrToQuery,
-    SearchTxFilter,
-    SearchTxQuery,
-    StargateClient,
-} from '@cosmjs/stargate';
-import { HttpService } from '@nestjs/axios';
+import * as axios from 'axios';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { catchError, firstValueFrom, retry, tap, throwError } from 'rxjs';
-import { MESSAGE_ACTION } from 'src/common/constants/app.constant';
-import { REPOSITORY_INTERFACE } from 'src/module.config';
-import { IAuraTransactionRepository } from 'src/repositories/iaura-tx.repository';
-import { IChainRepository } from 'src/repositories/ichain.repository';
-import { IMultisigTransactionRepository } from 'src/repositories/imultisig-transaction.repository';
-import { ISafeRepository } from 'src/repositories/isafe.repository';
-import { ConfigService } from 'src/shared/services/config.service';
 import { ISyncRestService } from '../isync-rest.service';
+import { ConfigService } from '../../shared/services/config.service';
+import { REPOSITORY_INTERFACE } from '../../module.config';
+import {
+    IAuraTransactionRepository,
+    IChainRepository,
+    IMultisigTransactionRepository,
+    ISafeRepository,
+} from '../../repositories';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
+import { RedisService } from '../../shared/services/redis.service';
+import { SafeInfo } from '../../dtos/responses/get-safe-by-chain.response';
+const _ = require('lodash');
+
 @Injectable()
 export class SyncRestService implements ISyncRestService {
     private readonly _logger = new Logger(SyncRestService.name);
-    private listChain;
-    private listSafeAddress;
+    private chain;
+    // private listSafeAddress;
+    private listSafe: SafeInfo[];
     private listChainIdSubscriber;
-    private listMessageAction = [MESSAGE_ACTION.MSG_EXECUTE_CONTRACT, MESSAGE_ACTION.MSG_INSTANTIATE_CONTRACT, MESSAGE_ACTION.MSG_MIGRATE_CONTRACT, MESSAGE_ACTION.MSG_SEND, MESSAGE_ACTION.MSG_STORE_CODE];
-    private config: ConfigService = new ConfigService();
+    private cacheKey;
+    private horoscopeApi;
+    private redisClient;
+
     constructor(
         private configService: ConfigService,
-        private httpService: HttpService,
+        private redisService: RedisService,
         @Inject(REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY)
         private auraTxRepository: IAuraTransactionRepository,
         @Inject(REPOSITORY_INTERFACE.ISAFE_REPOSITORY)
@@ -35,221 +38,145 @@ export class SyncRestService implements ISyncRestService {
         private chainRepository: IChainRepository,
         @Inject(REPOSITORY_INTERFACE.IMULTISIG_TRANSACTION_REPOSITORY)
         private multisigTransactionRepository: IMultisigTransactionRepository,
+        @InjectQueue('sync-rest') private readonly syncQueue: Queue,
     ) {
         this._logger.log(
             '============== Constructor Sync Rest Service ==============',
         );
+
+        this.listSafe = [];
         this.listChainIdSubscriber = JSON.parse(
             this.configService.get('CHAIN_SUBCRIBE'),
         );
-        this.initSyncRest();
+        this.horoscopeApi = this.configService.get('HOROSCOPE_API');
+        this.cacheKey = this.configService.get('LAST_BLOCK_HEIGHT');
+        this.syncRest();
     }
 
-    async initSyncRest() {
-        let listSafe = await this.safeRepository.findAll();
-        this.listChain = await this.chainRepository.findChainByChainId(
-            this.listChainIdSubscriber,
-        );
-        //add address for each chain
-        listSafe.forEach((safe) => {
-            let chainId = safe.chainId;
-            let chain = this.listChain.find((x) => x.id == chainId);
-            if (chain && safe.safeAddress) {
-                if (chain['safeAddresses'])
-                    chain['safeAddresses'].push(safe.safeAddress);
-                else chain['safeAddresses'] = [safe.safeAddress];
+    @Cron(CronExpression.EVERY_5_MINUTES)
+    async findTxByHash() {
+        try {
+            const listPendingTx =
+                await this.multisigTransactionRepository.findPendingMultisigTransaction(
+                    this.chain.id,
+                );
+            const result = await Promise.all(
+                listPendingTx.map((tx) =>
+                    axios.default.get(
+                        this.horoscopeApi +
+                        `transaction?chainid=${this.chain.chainId}&txHash=${tx.txHash}&pageLimit=100`,
+                    ),
+                ),
+            );
+            const txs = result
+                .filter((res) => res.data.data.transactions.length > 0)
+                .map((tx) => {
+                    return {
+                        code: parseInt(
+                            tx.data.data.transactions[0].tx_response.code,
+                            10,
+                        ),
+                        txHash: tx.data.data.transactions[0].tx_response.txhash,
+                    };
+                });
+            if (txs.length > 0) {
+                await this.updateMultisigTxStatus(txs);
             }
-        });
+        } catch (error) {
+            this._logger.error('findTxByHash: ', error);
+        }
+    }
 
-        for (let network of this.listChain) {
-            this.syncFromNetwork(network, network.safeAddresses);
-            this.findTxByHash(network);
+    @Cron(CronExpression.EVERY_5_SECONDS)
+    async syncRest() {
+        [this.chain, this.redisClient] = await Promise.all([
+            this.chainRepository.findChainByChainId(
+                this.listChainIdSubscriber[0],
+            ),
+            this.redisService.getRedisClient(this.redisClient),
+        ]);
+        const newSafes = await this.safeRepository.findSafeByInternalChainId(
+            this.chain.id,
+            this.listSafe.length > 0 ? this.listSafe[0].id : 0,
+        );
+        this.listSafe.push(...newSafes);
+
+        if (this.chain.rest.slice(-1) !== '/')
+            this.chain.rest = this.chain.rest + '/';
+
+        if (this.listSafe.length > 0) {
+            this.syncFromNetwork(this.chain, this.listSafe);
+        }
+    }
+
+    async syncFromNetwork(network, listSafes: SafeInfo[]) {
+        try {
+            const safeAddresses = _.keyBy(listSafes, 'safeAddress');
+            // Get the current latest block height on network
+            let height = (
+                await axios.default.get(
+                    this.horoscopeApi +
+                    `block?chainid=${network.chainId}&pageLimit=1`,
+                )
+            ).data.data.blocks[0].block.header.height;
+
+            // Get the last block height from cache (if exists) minus 2 blocks
+            let cacheLastHeight = await this.redisClient.get(this.cacheKey);
+            // if height from cache is too far behind current height, then set cacheLastHeight = height in network - 19 blocks
+            if (cacheLastHeight)
+                if (height - cacheLastHeight > 50000) cacheLastHeight = height - 19;
+
+            // get the last block height from db
+            let lastHeightFromDB = await this.getLatestBlockHeight(network.id);
+            // if height from db is zero or is too far behind current height, then set lastHeightFromDB = height in network - 19 blocks
+            if (lastHeightFromDB === 0 || height - lastHeightFromDB > 50000) lastHeightFromDB = height - 19;
+
+            let lastHeight = Number(cacheLastHeight
+                ? cacheLastHeight
+                : lastHeightFromDB);
+            this._logger.log(
+                `Last height from cache: ${cacheLastHeight}, query from ${lastHeight} to current height: ${height}`,
+            );
+
+            // set cache last height to the latest block height
+            await this.redisClient.set(this.cacheKey, height);
+            for (let i = lastHeight; i <= height; i++) {
+                this.syncQueue.add(
+                    'sync-tx-by-height',
+                    {
+                        height: i,
+                        safeAddresses,
+                        network,
+                    },
+                    {
+                        attempts: 3,
+                        removeOnComplete: true
+                    }
+                );
+            }
+
+        } catch (error) {
+            this._logger.error('syncFromNetwork: ', error);
         }
     }
 
     async getLatestBlockHeight(chainId) {
-        const lastHeight = await this.auraTxRepository.getLatestBlockHeight(chainId);
+        const lastHeight = await this.auraTxRepository.getLatestBlockHeight(
+            chainId,
+        );
         return lastHeight;
     }
 
-    async syncFromNetwork(network, listAddress) {
-        // console.log('hello123: ', network);
-        const client = await StargateClient.connect(network.rpc);
-        // Get the current block height received from websocket
-        let height = (await client.getBlock()).header.height;
-        let chainId = network.id;
-        // Get the last block height from DB
-        let lastHeight = await this.getLatestBlockHeight(chainId);
-        // Query each address in network to search for lost transactions
-        for (let address of listAddress) {
-            // console.log(address);
-            let lostTransations = [];
-            if (!address) continue;
-            const query: SearchTxQuery = {
-                sentFromOrTo: address,
-            };
-            const filter: SearchTxFilter = {
-                minHeight: lastHeight,
-                maxHeight: height,
-            };
-            const res = await client.searchTx(query, filter);
-            for (let i = 0; i < res.length; i++) {
-                let log: any = res[i].rawLog;
-                let message = {
-                    recipient: '',
-                    sender: '',
-                    denom: '',
-                    amount: 0,
-                };
-                console.log(log);
-                log = JSON.parse(log)[0].events;
-
-                let messageType = log.find(
-                    (x) => x.type == 'message',
-                ).attributes;
-                let messageAction;
-                try {
-                    messageAction = messageType.find((x) => x.key == 'action').value;
-                } catch (error) {
-                    this._logger.error('Error get message action', error);
-                }
-                if(this.listMessageAction.includes(messageAction)) {
-                    let attributes = log.find(
-                        (x) => x.type == 'transfer',
-                    ).attributes;
-                    message = {
-                        recipient: attributes.find((x) => x.key == 'recipient')
-                            .value,
-                        sender: attributes.find((x) => x.key == 'sender').value,
-                        denom: attributes
-                            .find((x) => x.key == 'amount')
-                            .value.match(/[a-zA-Z]+/g)[0],
-                        amount: attributes
-                            .find((x) => x.key == 'amount')
-                            .value.match(/\d+/g)[0],
-                    };
-                    let auraTx = {
-                        code: res[i].code ?? 0,
-                        data: '',
-                        gasUsed: res[i].gasUsed,
-                        gasWanted: res[i].gasWanted,
-                        fee: undefined,
-                        height: res[i].height,
-                        info: '',
-                        logs: '',
-                        rawLogs: res[i].rawLog,
-                        tx: '',
-                        txHash: res[i].hash,
-                        timeStamp: null,
-                        chainId: chainId,
-                        fromAddress: message.sender,
-                        toAddress: message.recipient,
-                        amount: message.amount,
-                        denom: message.denom,
-                    };
-                    lostTransations.push(auraTx);
-                    this._logger.log(auraTx.txHash, 'TxHash being synced');
-                } else {
-                    this._logger.error('Unwanted message action');
-                }
-            }
-            // Bulk insert transactions into DB
-            if (lostTransations.length > 0)
-                await this.auraTxRepository.insertBulkTransaction(
-                    lostTransations,
-                );
-        }
-    }
-    // @Cron(CronExpression.EVERY_SECOND)
-    async startSyncRest() {
-        this._logger.log('call every second');
-    }
-
-    // @Cron(CronExpression.EVERY_5_SECONDS)
-    async findTxByHash(network) {
-        if(!network) 
-            network = JSON.parse(this.config.get("CHAIN_SUBCRIBE"));
-        const chain = await this.chainRepository.findChainByChainId([network.chainId ? network.chainId : network[0]]);
-        let pendingTransations = [];
-        const client = await StargateClient.connect(chain[0].rpc);
-        const listPendingTx = await this.multisigTransactionRepository.findPendingMultisigTransaction(chain[0].id);
-        if(listPendingTx.length > 0) {
-            for(let i = 0; i < listPendingTx.length; i++) {
-                console.log(listPendingTx[i].txHash)
-                const tx = await client.getTx(listPendingTx[i].txHash);
-                console.log(tx);
-
-                let message = {
-                    recipient: '',
-                    sender: '',
-                    denom: '',
-                    amount: 0,
-                };
-                try {
-                    const log = JSON.parse(tx.rawLog)[0].events;
-
-                    let attributes = log.find(
-                        (x) => x.type == 'transfer',
-                    ).attributes;
-                    // let param = this.findAttribute(log, 'transfer', 'recipient');
-                    // console.log('param: ', param);
-
-                    message = {
-                        recipient: attributes.find((x) => x.key == 'recipient')
-                            .value,
-                        sender: attributes.find((x) => x.key == 'sender').value,
-                        denom: attributes
-                            .find((x) => x.key == 'amount')
-                            .value.match(/[a-zA-Z]+/g)[0],
-                        amount: attributes
-                            .find((x) => x.key == 'amount')
-                            .value.match(/\d+/g)[0],
-                    };
-                } catch (error) {
-                    this._logger.error('this is error transaction');
-                    this._logger.error(error);
-                    // message.sender = response.result.events['transfer.sender'][0];
-                    // message.recipient =
-                    //     response.result.events['transfer.recipient'][0];
-                    // message.denom =
-                    //     response.result.events['transfer.amount'][0].match(
-                    //         /[a-zA-Z]+/g,
-                    //     )[0];
-                    // message.amount =
-                    //     response.result.events['transfer.amount'][0].match(
-                    //         /\d+/g,
-                    //     )[0];
-                }
-
-                if(tx) {
-                    let auraTx = {
-                        code: tx.code ?? 0,
-                        data: '',
-                        gasUsed: tx.gasUsed ?? 0,
-                        gasWanted: tx.gasWanted ?? 0,
-                        height: tx.height,
-                        info: '',
-                        logs: '',
-                        rawLogs: tx.rawLog,
-                        tx: '',
-                        txHash: tx.hash,
-                        timeStamp: null,
-                        chainId: network.id,
-                        fromAddress: message.sender,
-                        toAddress: message.recipient,
-                        amount: message.amount,
-                        denom: message.denom,
-                    };
-                    pendingTransations.push(auraTx);
-                    this._logger.log(auraTx.txHash, 'Pending Tx being updated');
-                }
-            }
-        }
-        // Bulk insert transactions into DB
-        if (pendingTransations.length > 0)
-        await this.auraTxRepository.insertBulkTransaction(
-            pendingTransations,
+    async updateMultisigTxStatus(listData) {
+        let queries = [];
+        listData.map((data) =>
+            queries.push(
+                this.multisigTransactionRepository.updateMultisigTransactionsByHashes(
+                    data,
+                    this.chain.id,
+                ),
+            ),
         );
-        client.disconnect();
+        await Promise.all(queries);
     }
 }

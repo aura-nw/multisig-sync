@@ -16,16 +16,25 @@ import { SyncRestService } from './services/impls/sync-rest.service';
 import { HttpModule } from '@nestjs/axios';
 import { AppController } from './controllers/websocket.controller';
 import { MultisigTransactionRepository } from './repositories/impls/multisig-transaction.repository';
+import { MessageRepository } from './repositories/impls/message.repository';
+import { BullModule } from '@nestjs/bull';
+import { ConfigModule } from '@nestjs/config';
+import { SyncRestProcessor } from './processors/sync-rest.processor';
+import { RedisService } from './shared/services/redis.service';
+import { CommonService } from './shared/services/common.service';
 const entities = [
     ENTITIES_CONFIG.AURA_TX,
     ENTITIES_CONFIG.SAFE,
     ENTITIES_CONFIG.CHAIN,
     ENTITIES_CONFIG.MULTISIG_TRANSACTION,
+    ENTITIES_CONFIG.MESSAGE
 ];
 const controllers = [AppController];
+const processors = [SyncRestProcessor];
 // @Global()
 @Module({
     imports: [
+        ConfigModule.forRoot(),
         SharedModule,
         TypeOrmModule.forRootAsync({
             imports: [SharedModule, AppModule],
@@ -36,9 +45,30 @@ const controllers = [AppController];
         TypeOrmModule.forFeature([...entities]),
         ScheduleModule.forRoot(),
         HttpModule,
+        BullModule.forRoot({
+            redis: {
+                host: process.env.REDIS_HOST,
+                port: process.env.REDIS_PORT,
+                username: process.env.REDIS_USERNAME,
+                db: parseInt(process.env.REDIS_DB, 10),
+            },
+            prefix: `pyxis-safe-sync-${JSON.parse(process.env.CHAIN_SUBCRIBE)[0]}`,
+            defaultJobOptions: {
+                removeOnComplete: true,
+            }
+        }),
+        BullModule.registerQueue({
+            name: 'sync-rest'
+        }),
+        RedisService
+    ],
+    exports: [
+        BullModule,
+        ...processors,
     ],
     controllers: [...controllers],
     providers: [
+        // services
         {
             provide: SERVICE_INTERFACE.ISYNC_WEBSOCKET_SERVICE,
             useClass: SyncWebsocketService,
@@ -47,6 +77,9 @@ const controllers = [AppController];
             provide: SERVICE_INTERFACE.ISYNC_REST_SERVICE,
             useClass: SyncRestService,
         },
+        RedisService,
+        CommonService,
+        // repositories
         {
             provide: REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY,
             useClass: AuraTxRepository,
@@ -62,7 +95,13 @@ const controllers = [AppController];
         {
             provide: REPOSITORY_INTERFACE.IMULTISIG_TRANSACTION_REPOSITORY,
             useClass: MultisigTransactionRepository,
-        }
+        },
+        {
+            provide: REPOSITORY_INTERFACE.IMESSAGE_REPOSITORY,
+            useClass: MessageRepository,
+        },
+        // processors
+        ...processors,
     ],
 })
-export class AppModule {}
+export class AppModule { }

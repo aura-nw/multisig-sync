@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaseRepository } from './base.repository';
 import { ObjectLiteral, Repository } from 'typeorm';
-import { ENTITIES_CONFIG } from 'src/module.config';
+import { ENTITIES_CONFIG } from '../../module.config';
 import { IAuraTransactionRepository } from '../iaura-tx.repository';
 @Injectable()
 export class AuraTxRepository
@@ -31,11 +31,10 @@ export class AuraTxRepository
     }
 
     async insertBulkTransaction(listTransations: any[]) {
-        let query = `
-            INSERT IGNORE INTO AuraTx(CreatedAt, UpdatedAt, Id, Code, Data, GasUsed, GasWanted, Fee, Height, Info, Logs, RawLogs, FromAddress, ToAddress, Amount, Denom, TimeStamp, Tx, TxHash, InternalChainId) 
-            VALUES`;
+        console.log(listTransations);
+        let query = `INSERT IGNORE INTO AuraTx(CreatedAt, UpdatedAt, Id, Code, GasUsed, GasWanted, Fee, Height, RawLogs, FromAddress, ToAddress, Amount, RewardAmount, Denom, TimeStamp, TxHash, InternalChainId) VALUES`;
         for (let auraTx of listTransations) {
-            query += `(DEFAULT, DEFAULT, DEFAULT, ${auraTx.code}, '${auraTx.data}', ${auraTx.gasUsed}, ${auraTx.gasWanted}, ${auraTx.fee !== undefined ? auraTx.fee.toString() : null}, ${auraTx.height}, '${auraTx.info}', '${auraTx.logs}', '${auraTx.rawLogs}', '${auraTx.fromAddress}', '${auraTx.toAddress}', ${auraTx.amount}, '${auraTx.denom}', ${auraTx.timeStamp}, '${auraTx.tx}', '${auraTx.txHash}', '${auraTx.chainId}'),`;
+            query += ` (DEFAULT, DEFAULT, DEFAULT, ${auraTx.code}, ${auraTx.gasUsed}, ${auraTx.gasWanted}, ${auraTx.fee !== undefined ? auraTx.fee.toString() : null}, ${auraTx.height}, '${auraTx.rawLogs}', '${auraTx.fromAddress || ''}', '${auraTx.toAddress || ''}', ${auraTx.amount || null}, ${auraTx.rewardAmount || null}, '${auraTx.denom || ''}', FROM_UNIXTIME(${auraTx.timeStamp.valueOf()/1000}), '${auraTx.txHash}', '${auraTx.internalChainId}'),`;
         }
         // console.log(query);
         query = query.substring(0, query.length - 1) + ';';
