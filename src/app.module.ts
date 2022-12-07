@@ -55,6 +55,7 @@ const processors = [SyncRestProcessor];
             prefix: `pyxis-safe-sync-${JSON.parse(process.env.CHAIN_SUBCRIBE)[0]}`,
             defaultJobOptions: {
                 removeOnComplete: true,
+                attempts: 3
             }
         }),
         BullModule.registerQueue({

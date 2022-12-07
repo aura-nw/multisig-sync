@@ -124,7 +124,7 @@ export class SyncRestService implements ISyncRestService {
             let cacheLastHeight = await this.redisClient.get(this.cacheKey);
             // if height from cache is too far behind current height, then set cacheLastHeight = height in network - 19 blocks
             if (cacheLastHeight)
-                if (height - cacheLastHeight > 50000) cacheLastHeight = height - 19;
+                if (height - cacheLastHeight > 1000) cacheLastHeight = height - 19;
 
             // get the last block height from db
             let lastHeightFromDB = await this.getLatestBlockHeight(network.id);
@@ -141,18 +141,11 @@ export class SyncRestService implements ISyncRestService {
             // set cache last height to the latest block height
             await this.redisClient.set(this.cacheKey, height);
             for (let i = lastHeight; i <= height; i++) {
-                this.syncQueue.add(
-                    'sync-tx-by-height',
-                    {
-                        height: i,
-                        safeAddresses,
-                        network,
-                    },
-                    {
-                        attempts: 3,
-                        removeOnComplete: true
-                    }
-                );
+                this.syncQueue.add('sync-tx-by-height', {
+                    height: i,
+                    safeAddresses,
+                    network,
+                });
             }
 
         } catch (error) {
