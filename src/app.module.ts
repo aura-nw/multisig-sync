@@ -1,4 +1,5 @@
-import { Global, Module } from '@nestjs/common';
+/* eslint-disable prettier/prettier */
+import { Module } from '@nestjs/common';
 import {
     ENTITIES_CONFIG,
     REPOSITORY_INTERFACE,
@@ -31,7 +32,7 @@ const entities = [
 ];
 const controllers = [AppController];
 const processors = [SyncRestProcessor];
-// @Global()
+
 @Module({
     imports: [
         ConfigModule.forRoot(),
