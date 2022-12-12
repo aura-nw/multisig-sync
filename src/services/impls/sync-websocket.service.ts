@@ -1,12 +1,12 @@
+/* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-this-alias */
+/* eslint-disable @typescript-eslint/no-var-requires */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { REPOSITORY_INTERFACE } from '../../module.config';
 import * as WebSocket from 'socket.io-client';
 import { ISyncWebsocketService } from '../isync-websocket.service';
 import { ConfigService } from '../../shared/services/config.service';
-import {
-    IChainRepository,
-    ISafeRepository
-} from '../../repositories';
+import { IChainRepository, ISafeRepository } from '../../repositories';
 import { CommonService } from '../../shared/services/common.service';
 const _ = require('lodash');
 
@@ -23,25 +23,28 @@ export class SyncWebsocketService implements ISyncWebsocketService {
         @Inject(REPOSITORY_INTERFACE.ISAFE_REPOSITORY)
         private safeRepository: ISafeRepository,
         @Inject(REPOSITORY_INTERFACE.ICHAIN_REPOSITORY)
-        private chainRepository: IChainRepository
+        private chainRepository: IChainRepository,
     ) {
         this._logger.log(
             '============== Constructor Sync Websocket Service ==============',
         );
-        this.chainIdSubscriber = JSON.parse(this.configService.get('CHAIN_SUBCRIBE'));
+        this.chainIdSubscriber = JSON.parse(
+            this.configService.get('CHAIN_SUBCRIBE'),
+        );
         this.websocketSubscriber = this.configService.get('WEBSOCKET_URL');
         this.startSyncWebsocket();
     }
 
     async startSyncWebsocket() {
         this._logger.log('syncFromNetwork');
-        this._logger.log(JSON.stringify(network));
-        // this._logger.debug(JSON.stringify(network));
-        let websocketUrl = network.websocket;
-        let self = this;
-        this.chain = await this.chainRepository.findChainByChainId(this.chainIdSubscriber);
-        if (this.chain.rest.slice(-1) !== '/') this.chain.rest = this.chain.rest + '/';
-        let websocket = WebSocket.io(websocketUrl);
+        const websocketUrl = this.websocketSubscriber;
+        const self = this;
+        this.chain = await this.chainRepository.findChainByChainId(
+            this.chainIdSubscriber,
+        );
+        if (this.chain.rest.slice(-1) !== '/')
+            this.chain.rest = this.chain.rest + '/';
+        const websocket = WebSocket.io(websocketUrl);
         websocket.on('connect', () => {
             console.log('Connected to websocket');
         });
@@ -65,10 +68,17 @@ export class SyncWebsocketService implements ISyncWebsocketService {
     async handleMessage(listTx) {
         this._logger.log(listTx);
         try {
-            let existSafes = await this.safeRepository.findSafeByInternalChainId(this.chain.id);
+            const existSafes =
+                await this.safeRepository.findSafeByInternalChainId(
+                    this.chain.id,
+                );
             const safes = _.keyBy(existSafes, 'safeAddress');
 
-            await this.commonService.handleTransactions(listTx, safes, this.chain);
+            await this.commonService.handleTransactions(
+                listTx,
+                safes,
+                this.chain,
+            );
         } catch (error) {
             this._logger.error(error);
         }
