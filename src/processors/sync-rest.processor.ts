@@ -63,7 +63,7 @@ export class SyncRestProcessor {
                 if (resultCallApi.data.data.nextKey === null) {
                     done = true;
                 } else {
-                    urlToCall = `${param}&nextKey=${resultCallApi.data.data.nextKey}`;
+                    urlToCall = `${param}&nextKey=${encodeURIComponent(resultCallApi.data.data.nextKey)}`;
                 }
             } catch (error) {
                 this.logger.error(error);
