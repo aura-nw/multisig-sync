@@ -1,14 +1,19 @@
-import { OnQueueActive, OnQueueCompleted, OnQueueError, OnQueueFailed, Process, Processor } from "@nestjs/bull";
-import { Logger, Inject } from "@nestjs/common";
-import * as axios from 'axios';
-import { Job } from "bull";
-import { CommonService } from "../shared/services/common.service";
-import { CONST_CHAR } from "../common";
-import { REPOSITORY_INTERFACE } from "../module.config";
+/* eslint-disable prettier/prettier */
 import {
-    IMultisigTransactionRepository
-} from "../repositories";
-import { ConfigService } from "../shared/services/config.service";
+    OnQueueActive,
+    OnQueueCompleted,
+    OnQueueError,
+    OnQueueFailed,
+    Process,
+    Processor,
+} from '@nestjs/bull';
+import { Logger, Inject } from '@nestjs/common';
+import * as axios from 'axios';
+import { Job } from 'bull';
+import { CommonService } from '../shared/services/common.service';
+import { REPOSITORY_INTERFACE } from '../module.config';
+import { IMultisigTransactionRepository } from '../repositories';
+import { ConfigService } from '../shared/services/config.service';
 
 @Processor('sync-rest')
 export class SyncRestProcessor {
@@ -19,7 +24,7 @@ export class SyncRestProcessor {
         private configService: ConfigService,
         private commonService: CommonService,
         @Inject(REPOSITORY_INTERFACE.IMULTISIG_TRANSACTION_REPOSITORY)
-        private multisigTransactionRepository: IMultisigTransactionRepository
+        private multisigTransactionRepository: IMultisigTransactionRepository,
     ) {
         this.logger.log(
             '============== Constructor Sync Rest Processor Service ==============',
@@ -30,48 +35,60 @@ export class SyncRestProcessor {
 
     @Process({
         name: 'sync-tx-by-height',
-        concurrency: 10
+        concurrency: 10,
     })
     async handleQueryTxByHeight(job: Job) {
         // this.logger.log(`Handle Job: ${JSON.stringify(job.data)}`);
-        let syncTxs: any[] = [], syncTxMessages: any[] = [], listQueries: any[] = [];
+        const listQueries: any[] = [];
         let result = [];
-        let height = job.data.height;
-        let safes = job.data.safeAddresses;
-        let network = job.data.network;
+        const height = job.data.height;
+        const safes = job.data.safeAddresses;
+        const network = job.data.network;
         const param = `transaction?chainid=${network.chainId}&blockHeight=${height}&pageLimit=100`;
         let urlToCall = param;
         let done = false;
         let resultCallApi;
         while (!done) {
-            resultCallApi = await axios.default.get(this.horoscopeApi + urlToCall);
-            if (resultCallApi.data.data.transactions.length > 0)
-                resultCallApi.data.data.transactions.map(res => {
-                    result.push({
-                        code: parseInt(res.tx_response.code, 10),
-                        txHash: res.tx_response.txhash
+            try {
+                resultCallApi = await axios.default.get(
+                    this.horoscopeApi + urlToCall,
+                );
+                if (resultCallApi.data.data.transactions.length > 0)
+                    resultCallApi.data.data.transactions.map((res) => {
+                        result.push({
+                            code: parseInt(res.tx_response.code, 10),
+                            txHash: res.tx_response.txhash,
+                        });
                     });
-                });
-            if (resultCallApi.data.data.nextKey === null) {
+                if (resultCallApi.data.data.nextKey === null) {
+                    done = true;
+                } else {
+                    urlToCall = `${param}&nextKey=${encodeURIComponent(resultCallApi.data.data.nextKey)}`;
+                }
+            } catch (error) {
+                this.logger.error(error);
                 done = true;
-            } else {
-                urlToCall = `${param}&nextKey=${encodeURIComponent(
-                    resultCallApi.data.data.nextKey,
-                )}`;
             }
         }
         this.logger.log(`Txs of block ${height}: ${JSON.stringify(result)}`);
 
         try {
             if (result.length > 0) {
-                result.map(res => {
-                    listQueries.push(axios.default.get(
-                        this.horoscopeApi + `transaction?chainid=${network.chainId}&txHash=${res.txHash}&pageLimit=100`
-                    ))
+                result.map((res) => {
+                    listQueries.push(
+                        axios.default.get(
+                            this.horoscopeApi +
+                            `transaction?chainid=${network.chainId}&txHash=${res.txHash}&pageLimit=100`,
+                        ),
+                    );
                 });
                 result = await Promise.all(listQueries);
 
-                await this.commonService.handleTransactions(result.map(res => res.data.data.transactions[0]), safes, network);
+                await this.commonService.handleTransactions(
+                    result.map((res) => res.data.data.transactions[0]),
+                    safes,
+                    network,
+                );
             }
         } catch (error) {
             this.logger.error(error);
@@ -103,10 +120,15 @@ export class SyncRestProcessor {
     }
 
     async checkTxFail(listData, network) {
-        let queries = [];
-        listData.map((data) => queries.push(this.multisigTransactionRepository.updateMultisigTransactionsByHashes(
-            data, network.id
-        )));
+        const queries = [];
+        listData.map((data) =>
+            queries.push(
+                this.multisigTransactionRepository.updateMultisigTransactionsByHashes(
+                    data,
+                    network.id,
+                ),
+            ),
+        );
         await Promise.all(queries);
     }
 }

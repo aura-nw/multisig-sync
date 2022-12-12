@@ -1,3 +1,5 @@
+/* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-var-requires */
 import * as axios from 'axios';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -64,7 +66,7 @@ export class SyncRestService implements ISyncRestService {
                 listPendingTx.map((tx) =>
                     axios.default.get(
                         this.horoscopeApi +
-                        `transaction?chainid=${this.chain.chainId}&txHash=${tx.txHash}&pageLimit=100`,
+                            `transaction?chainid=${this.chain.chainId}&txHash=${tx.txHash}&pageLimit=100`,
                     ),
                 ),
             );
@@ -113,10 +115,10 @@ export class SyncRestService implements ISyncRestService {
         try {
             const safeAddresses = _.keyBy(listSafes, 'safeAddress');
             // Get the current latest block height on network
-            let height = (
+            const height = (
                 await axios.default.get(
                     this.horoscopeApi +
-                    `block?chainid=${network.chainId}&pageLimit=1`,
+                        `block?chainid=${network.chainId}&pageLimit=1`,
                 )
             ).data.data.blocks[0].block.header.height;
 
@@ -124,16 +126,18 @@ export class SyncRestService implements ISyncRestService {
             let cacheLastHeight = await this.redisClient.get(this.cacheKey);
             // if height from cache is too far behind current height, then set cacheLastHeight = height in network - 19 blocks
             if (cacheLastHeight)
-                if (height - cacheLastHeight > 1000) cacheLastHeight = height - 19;
+                if (height - cacheLastHeight > 1000)
+                    cacheLastHeight = height - 19;
 
             // get the last block height from db
             let lastHeightFromDB = await this.getLatestBlockHeight(network.id);
             // if height from db is zero or is too far behind current height, then set lastHeightFromDB = height in network - 19 blocks
-            if (lastHeightFromDB === 0 || height - lastHeightFromDB > 50000) lastHeightFromDB = height - 19;
+            if (lastHeightFromDB === 0 || height - lastHeightFromDB > 50000)
+                lastHeightFromDB = height - 19;
 
-            let lastHeight = Number(cacheLastHeight
-                ? cacheLastHeight
-                : lastHeightFromDB);
+            const lastHeight = Number(
+                cacheLastHeight ? cacheLastHeight : lastHeightFromDB,
+            );
             this._logger.log(
                 `Last height from cache: ${cacheLastHeight}, query from ${lastHeight} to current height: ${height}`,
             );
@@ -147,7 +151,6 @@ export class SyncRestService implements ISyncRestService {
                     network,
                 });
             }
-
         } catch (error) {
             this._logger.error('syncFromNetwork: ', error);
         }
@@ -161,7 +164,7 @@ export class SyncRestService implements ISyncRestService {
     }
 
     async updateMultisigTxStatus(listData) {
-        let queries = [];
+        const queries = [];
         listData.map((data) =>
             queries.push(
                 this.multisigTransactionRepository.updateMultisigTransactionsByHashes(
