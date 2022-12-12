@@ -1,3 +1,5 @@
+/* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-var-requires */
 import * as axios from 'axios';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -53,7 +55,7 @@ export class SyncRestService implements ISyncRestService {
         this.syncRest();
     }
 
-    @Cron(CronExpression.EVERY_5_MINUTES)
+    // @Cron(CronExpression.EVERY_5_MINUTES)
     async findTxByHash() {
         try {
             const listPendingTx =
@@ -64,7 +66,7 @@ export class SyncRestService implements ISyncRestService {
                 listPendingTx.map((tx) =>
                     axios.default.get(
                         this.horoscopeApi +
-                        `transaction?chainid=${this.chain.chainId}&txHash=${tx.txHash}&pageLimit=100`,
+                            `transaction?chainid=${this.chain.chainId}&txHash=${tx.txHash}&pageLimit=100`,
                     ),
                 ),
             );
@@ -87,7 +89,7 @@ export class SyncRestService implements ISyncRestService {
         }
     }
 
-    @Cron(CronExpression.EVERY_5_SECONDS)
+    // @Cron(CronExpression.EVERY_5_SECONDS)
     async syncRest() {
         [this.chain, this.redisClient] = await Promise.all([
             this.chainRepository.findChainByChainId(
@@ -112,45 +114,43 @@ export class SyncRestService implements ISyncRestService {
     async syncFromNetwork(network, listSafes: SafeInfo[]) {
         try {
             const safeAddresses = _.keyBy(listSafes, 'safeAddress');
-            // Get the current latest block height on network
-            let height = (
-                await axios.default.get(
-                    this.horoscopeApi +
-                    `block?chainid=${network.chainId}&pageLimit=1`,
-                )
-            ).data.data.blocks[0].block.header.height;
+            // // Get the current latest block height on network
+            // const height = (
+            //     await axios.default.get(
+            //         this.horoscopeApi +
+            //             `block?chainid=${network.chainId}&pageLimit=1`,
+            //     )
+            // ).data.data.blocks[0].block.header.height;
 
-            // Get the last block height from cache (if exists) minus 2 blocks
-            let cacheLastHeight = await this.redisClient.get(this.cacheKey);
-            // if height from cache is too far behind current height, then set cacheLastHeight = height in network - 19 blocks
-            if (cacheLastHeight)
-                if (height - cacheLastHeight > 1000) cacheLastHeight = height - 19;
+            // // Get the last block height from cache (if exists) minus 2 blocks
+            // let cacheLastHeight = await this.redisClient.get(this.cacheKey);
+            // // if height from cache is too far behind current height, then set cacheLastHeight = height in network - 19 blocks
+            // if (cacheLastHeight)
+            //     if (height - cacheLastHeight > 1000)
+            //         cacheLastHeight = height - 19;
 
-            // get the last block height from db
-            let lastHeightFromDB = await this.getLatestBlockHeight(network.id);
-            // if height from db is zero or is too far behind current height, then set lastHeightFromDB = height in network - 19 blocks
-            if (lastHeightFromDB === 0 || height - lastHeightFromDB > 50000) lastHeightFromDB = height - 19;
+            // // get the last block height from db
+            // let lastHeightFromDB = await this.getLatestBlockHeight(network.id);
+            // // if height from db is zero or is too far behind current height, then set lastHeightFromDB = height in network - 19 blocks
+            // if (lastHeightFromDB === 0 || height - lastHeightFromDB > 50000)
+            //     lastHeightFromDB = height - 19;
 
-            // if height from db is zero, then set lastHeightFromDB = height in network - 15 blocks
-            if (lastHeightFromDB === 0) lastHeightFromDB = height - 15;
+            // const lastHeight = Number(
+            //     cacheLastHeight ? cacheLastHeight : lastHeightFromDB,
+            // );
+            // this._logger.log(
+            //     `Last height from cache: ${cacheLastHeight}, query from ${lastHeight} to current height: ${height}`,
+            // );
 
-            let lastHeight = Number(cacheLastHeight
-                ? cacheLastHeight
-                : lastHeightFromDB);
-            this._logger.log(
-                `Last height from cache: ${cacheLastHeight}, query from ${lastHeight} to current height: ${height}`,
-            );
-
-            // set cache last height to the latest block height
-            await this.redisClient.set(this.cacheKey, height);
-            for (let i = lastHeight; i <= height; i++) {
+            // // set cache last height to the latest block height
+            // await this.redisClient.set(this.cacheKey, height);
+            // for (let i = lastHeight; i <= height; i++) {
                 this.syncQueue.add('sync-tx-by-height', {
-                    height: i,
+                    height: 9921110, // i
                     safeAddresses,
                     network,
                 });
-            }
-
+            // }
         } catch (error) {
             this._logger.error('syncFromNetwork: ', error);
         }
@@ -164,7 +164,7 @@ export class SyncRestService implements ISyncRestService {
     }
 
     async updateMultisigTxStatus(listData) {
-        let queries = [];
+        const queries = [];
         listData.map((data) =>
             queries.push(
                 this.multisigTransactionRepository.updateMultisigTransactionsByHashes(
