@@ -39,12 +39,11 @@ export class SyncRestProcessor {
     })
     async handleQueryTxByHeight(job: Job) {
         // this.logger.log(`Handle Job: ${JSON.stringify(job.data)}`);
-        const listQueries: any[] = [];
-        let result = [];
+        const result = [];
         const height = job.data.height;
         const safes = job.data.safeAddresses;
         const network = job.data.network;
-        const param = `transaction?chainid=${network.chainId}&blockHeight=${height}&pageLimit=100`;
+        const param = `transaction?chainid=${network.chainId}&blockHeight=${height}&needFullLog=true&pageLimit=100`;
         let urlToCall = param;
         let done = false;
         let resultCallApi;
@@ -55,10 +54,7 @@ export class SyncRestProcessor {
                 );
                 if (resultCallApi.data.data.transactions.length > 0)
                     resultCallApi.data.data.transactions.map((res) => {
-                        result.push({
-                            code: parseInt(res.tx_response.code, 10),
-                            txHash: res.tx_response.txhash,
-                        });
+                        result.push(res);
                     });
                 if (resultCallApi.data.data.nextKey === null) {
                     done = true;
@@ -74,18 +70,8 @@ export class SyncRestProcessor {
 
         try {
             if (result.length > 0) {
-                result.map((res) => {
-                    listQueries.push(
-                        axios.default.get(
-                            this.horoscopeApi +
-                            `transaction?chainid=${network.chainId}&txHash=${res.txHash}&pageLimit=100`,
-                        ),
-                    );
-                });
-                result = await Promise.all(listQueries);
-
                 await this.commonService.handleTransactions(
-                    result.map((res) => res.data.data.transactions[0]),
+                    result,
                     safes,
                     network,
                 );
