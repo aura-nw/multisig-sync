@@ -1,8 +1,11 @@
 /* eslint-disable prettier/prettier */
 import { Inject, Logger } from '@nestjs/common';
+import { uniq } from 'lodash';
+import { Input, Output } from 'cosmjs-types/cosmos/bank/v1beta1/bank';
+import { ITransactionHistoryRepository } from 'src/repositories/itx-history.repository';
 
 import { CONST_CHAR, MESSAGE_ACTION } from '../../common';
-import { AuraTx, Message } from '../../entities';
+import { AuraTx, Message, TransactionHistory } from '../../entities';
 import { REPOSITORY_INTERFACE } from '../../module.config';
 import {
     IAuraTransactionRepository,
@@ -35,16 +38,21 @@ export class CommonService {
         private multisigTransactionRepository: IMultisigTransactionRepository,
         @Inject(REPOSITORY_INTERFACE.IMESSAGE_REPOSITORY)
         private messageRepository: IMessageRepository,
+        @Inject(REPOSITORY_INTERFACE.ITX_HISTORY_REPOSITORY)
+        private txHistoryRepository: ITransactionHistoryRepository,
     ) {}
 
     async handleTransactions(listTx, safes, chain) {
+        // const safeAddresses = Object.keys(safes);
         const syncTxs: any[] = [],
-            syncTxMessages: any[] = [];
+            syncTxMessages: any[] = [],
+            txsHistory: TransactionHistory[] = [];
         try {
             listTx.map((txs) => {
                 const listTxMessages: any[] = [];
-                let auraTxAmount = null,
-                    auraTxRewardAmount = null;
+                let relatedSafeAddress: string[] = [];
+                let auraTxAmount = null;
+                let auraTxRewardAmount = null;
 
                 txs.tx.body.messages
                     .filter((msg) =>
@@ -55,11 +63,15 @@ export class CommonService {
                         const txMessage = new Message();
                         switch (type) {
                             case MESSAGE_ACTION.MSG_SEND:
-                                if (
-                                    !safes[msg.to_address] &&
-                                    !safes[msg.from_address]
-                                )
-                                    break;
+                                relatedSafeAddress.push(
+                                    ...[
+                                        msg.from_address,
+                                        msg.to_address,
+                                    ].filter((address) => safes[address]),
+                                );
+
+                                if (relatedSafeAddress.length === 0) break;
+
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_SEND;
                                 txMessage.fromAddress = msg.from_address;
                                 txMessage.toAddress = msg.to_address;
@@ -88,9 +100,20 @@ export class CommonService {
                                         );
                                         listTxMessages.push(txMessage);
                                     });
+
+                                relatedSafeAddress = [
+                                    ...msg.inputs.map(
+                                        (input: Input) => input.address,
+                                    ),
+                                    ...msg.outputs.map(
+                                        (output: Output) => output.address,
+                                    ),
+                                ].filter((address: string) => safes[address]);
                                 break;
                             case MESSAGE_ACTION.MSG_DELEGATE:
                                 if (!safes[msg.delegator_address]) break;
+                                relatedSafeAddress.push(msg.delegator_address);
+
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_DELEGATE;
                                 txMessage.fromAddress = msg.validator_address;
                                 txMessage.toAddress = msg.delegator_address;
@@ -127,6 +150,8 @@ export class CommonService {
                                 break;
                             case MESSAGE_ACTION.MSG_REDELEGATE:
                                 if (!safes[msg.delegator_address]) break;
+                                relatedSafeAddress.push(msg.delegator_address);
+
                                 let withdraw_rewards = null;
                                 txMessage.typeUrl =
                                     MESSAGE_ACTION.MSG_REDELEGATE;
@@ -217,6 +242,8 @@ export class CommonService {
                                 break;
                             case MESSAGE_ACTION.MSG_UNDELEGATE:
                                 if (!safes[msg.delegator_address]) break;
+                                relatedSafeAddress.push(msg.delegator_address);
+
                                 txMessage.typeUrl =
                                     MESSAGE_ACTION.MSG_UNDELEGATE;
                                 txMessage.fromAddress = msg.validator_address;
@@ -254,6 +281,8 @@ export class CommonService {
                                 break;
                             case MESSAGE_ACTION.MSG_WITHDRAW_REWARDS:
                                 if (!safes[msg.delegator_address]) break;
+                                relatedSafeAddress.push(msg.delegator_address);
+
                                 txMessage.typeUrl =
                                     MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
                                 txMessage.fromAddress = msg.validator_address;
@@ -290,6 +319,8 @@ export class CommonService {
                                 break;
                             case MESSAGE_ACTION.MSG_VOTE:
                                 if (!safes[msg.voter]) break;
+                                relatedSafeAddress.push(msg.voter);
+
                                 txMessage.typeUrl = MESSAGE_ACTION.MSG_VOTE;
                                 txMessage.fromAddress = msg.voter;
                                 txMessage.amount = null;
@@ -328,6 +359,16 @@ export class CommonService {
                     auraTx.internalChainId = chain.id;
                     syncTxs.push(auraTx);
                 }
+                uniq(relatedSafeAddress).forEach((address) => {
+                    txsHistory.push(
+                        new TransactionHistory(
+                            chain.id,
+                            address,
+                            txs.tx_response.txhash,
+                            txs.tx_response.timestamp,
+                        ),
+                    );
+                });
             });
             this._logger.log('Qualified Txs: ' + JSON.stringify(syncTxs));
 
@@ -335,6 +376,10 @@ export class CommonService {
                 const txs = await this.auraTxRepository.insertBulkTransaction(
                     syncTxs,
                 );
+
+                // Insert tx history
+                await this.txHistoryRepository.create(txsHistory);
+
                 let id = txs.insertId;
                 syncTxMessages.map((txMessage) => {
                     txMessage.map((tm) => (tm.auraTxId = id));
