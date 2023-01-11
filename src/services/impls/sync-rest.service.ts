@@ -16,6 +16,7 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { RedisService } from '../../shared/services/redis.service';
 import { SafeInfo } from '../../dtos/responses/get-safe-by-chain.response';
+import { CommonService } from '../../shared/services/common.service';
 const _ = require('lodash');
 
 @Injectable()
@@ -31,6 +32,7 @@ export class SyncRestService implements ISyncRestService {
 
     constructor(
         private configService: ConfigService,
+        private commonService: CommonService,
         private redisService: RedisService,
         @Inject(REPOSITORY_INTERFACE.IAURA_TX_REPOSITORY)
         private auraTxRepository: IAuraTransactionRepository,
@@ -70,9 +72,12 @@ export class SyncRestService implements ISyncRestService {
                     ),
                 ),
             );
+
+            const listTx = [];
             const txs = result
                 .filter((res) => res.data.data.transactions.length > 0)
                 .map((tx) => {
+                    listTx.push(...tx.data.data.transactions);
                     return {
                         code: parseInt(
                             tx.data.data.transactions[0].tx_response.code,
@@ -82,6 +87,12 @@ export class SyncRestService implements ISyncRestService {
                     };
                 });
             if (txs.length > 0) {
+                const safes = _.keyBy(this.listSafe, 'safeAddress');
+                await this.commonService.handleTransactions(
+                    listTx,
+                    safes,
+                    this.chain,
+                );
                 await this.updateMultisigTxStatus(txs);
             }
         } catch (error) {
