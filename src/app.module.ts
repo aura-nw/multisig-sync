@@ -23,12 +23,14 @@ import { ConfigModule } from '@nestjs/config';
 import { SyncRestProcessor } from './processors/sync-rest.processor';
 import { RedisService } from './shared/services/redis.service';
 import { CommonService } from './shared/services/common.service';
+import { TransactionHistoryRepository } from './repositories/impls/tx-history.repository';
 const entities = [
     ENTITIES_CONFIG.AURA_TX,
     ENTITIES_CONFIG.SAFE,
     ENTITIES_CONFIG.CHAIN,
     ENTITIES_CONFIG.MULTISIG_TRANSACTION,
-    ENTITIES_CONFIG.MESSAGE
+    ENTITIES_CONFIG.MESSAGE,
+    ENTITIES_CONFIG.TX_HISTORY,
 ];
 const controllers = [AppController];
 const processors = [SyncRestProcessor];
@@ -49,25 +51,24 @@ const processors = [SyncRestProcessor];
         BullModule.forRoot({
             redis: {
                 host: process.env.REDIS_HOST,
-                port: process.env.REDIS_PORT,
+                port: Number(process.env.REDIS_PORT),
                 username: process.env.REDIS_USERNAME,
                 db: parseInt(process.env.REDIS_DB, 10),
             },
-            prefix: `pyxis-safe-sync-${JSON.parse(process.env.CHAIN_SUBCRIBE)[0]}`,
+            prefix: `pyxis-safe-sync-${
+                JSON.parse(process.env.CHAIN_SUBCRIBE)[0]
+            }`,
             defaultJobOptions: {
                 removeOnComplete: true,
-                attempts: 3
-            }
+                attempts: 3,
+            },
         }),
         BullModule.registerQueue({
-            name: 'sync-rest'
+            name: 'sync-rest',
         }),
-        RedisService
+        RedisService,
     ],
-    exports: [
-        BullModule,
-        ...processors,
-    ],
+    exports: [BullModule, ...processors],
     controllers: [...controllers],
     providers: [
         // services
@@ -102,8 +103,12 @@ const processors = [SyncRestProcessor];
             provide: REPOSITORY_INTERFACE.IMESSAGE_REPOSITORY,
             useClass: MessageRepository,
         },
+        {
+            provide: REPOSITORY_INTERFACE.ITX_HISTORY_REPOSITORY,
+            useClass: TransactionHistoryRepository,
+        },
         // processors
         ...processors,
     ],
 })
-export class AppModule { }
+export class AppModule {}
