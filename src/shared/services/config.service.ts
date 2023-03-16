@@ -1,6 +1,6 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import * as dotenv from 'dotenv';
-import { DATABASE_TYPE } from 'src/common/constants/app.constant';
+import { DATABASE_TYPE } from '../../common/constants/app.constant';
 import { PascalCaseStrategy } from '../pascalCase.strategy';
 
 export class ConfigService {
@@ -40,9 +40,7 @@ export class ConfigService {
     }
 
     get ENV_CONFIG() {
-        return {
-
-        }
+        return {};
     }
 
     get typeOrmConfig(): TypeOrmModuleOptions {
@@ -59,13 +57,12 @@ export class ConfigService {
             password: this.get('DB_PASSWORD'),
             database: this.get('DB_DATABASE'),
             migrationsRun: true,
-            connectTimeout: 1000,
+            connectTimeout: 60000,
             logging: this.nodeEnv === 'development',
             namingStrategy: new PascalCaseStrategy(),
-            multipleStatements: true
+            multipleStatements: true,
         };
     }
 }
 
 export const ENV_CONFIG = new ConfigService().ENV_CONFIG;
-

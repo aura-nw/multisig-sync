@@ -22,5 +22,5 @@ export class Safe extends BaseEntityAutoId {
     status: string;
 
     @Column({ name: 'InternalChainId', nullable: true })
-    chainId: number;
+    internalChainId: number;
 }

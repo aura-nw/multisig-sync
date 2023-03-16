@@ -1,3 +1,1 @@
-export interface ISyncRestService {
-
-}
+export interface ISyncRestService {}

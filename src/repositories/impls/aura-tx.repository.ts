@@ -2,12 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaseRepository } from './base.repository';
 import { ObjectLiteral, Repository } from 'typeorm';
-import { ENTITIES_CONFIG } from 'src/module.config';
+import { ENTITIES_CONFIG } from '../../module.config';
 import { IAuraTransactionRepository } from '../iaura-tx.repository';
 @Injectable()
 export class AuraTxRepository
     extends BaseRepository
-    implements IAuraTransactionRepository {
+    implements IAuraTransactionRepository
+{
     private readonly _logger = new Logger(AuraTxRepository.name);
     constructor(
         @InjectRepository(ENTITIES_CONFIG.AURA_TX)
@@ -16,25 +17,24 @@ export class AuraTxRepository
         super(repos);
     }
 
-    async getLatestBlockHeight(address: string) {
-        let query = this.repos.createQueryBuilder('auraTx')
+    async getLatestBlockHeight(chainId: number) {
+        let query = this.repos
+            .createQueryBuilder('auraTx')
             .select('auraTx.height as height')
-            .where('fromAddress = :address', { address })
-            .orWhere('toAddress = :address', { address })
-            .orderBy('height', 'DESC');
+            .where('internalChainId = :chainId', { chainId })
+            .orderBy('auraTx.id', 'DESC');
         let res = await query.getRawOne();
-        if (res){
+        if (res) {
             return res.height;
         }
         return 0;
     }
 
     async insertBulkTransaction(listTransations: any[]) {
-        let query = `
-            INSERT IGNORE INTO AuraTx(CreatedAt, UpdatedAt, Id, Code, Data, GasUsed, GasWanted, Height, Info, Logs, RawLogs, FromAddress, ToAddress, Amount, Denom, TimeStamp, Tx, TxHash, ChainId) 
-            VALUES`;
-        for(let auraTx of listTransations) {
-            query += `(DEFAULT, DEFAULT, DEFAULT, ${auraTx.code}, '${auraTx.data}', ${auraTx.gasUsed}, ${auraTx.gasWanted}, ${auraTx.height}, '${auraTx.info}', '${auraTx.logs}', '${auraTx.rawLogs}', '${auraTx.fromAddress}', '${auraTx.toAddress}', ${auraTx.amount}, '${auraTx.denom}', ${auraTx.timeStamp}, '${auraTx.tx}', '${auraTx.txHash}', '${auraTx.chainId}'),`;
+        console.log(listTransations);
+        let query = `INSERT IGNORE INTO AuraTx(CreatedAt, UpdatedAt, Id, Code, GasUsed, GasWanted, Fee, Height, RawLogs, FromAddress, ToAddress, Amount, RewardAmount, Denom, TimeStamp, TxHash, InternalChainId) VALUES`;
+        for (let auraTx of listTransations) {
+            query += ` (DEFAULT, DEFAULT, DEFAULT, ${auraTx.code}, ${auraTx.gasUsed}, ${auraTx.gasWanted}, ${auraTx.fee !== undefined ? auraTx.fee.toString() : null}, ${auraTx.height}, '${auraTx.rawLogs}', '${auraTx.fromAddress || ''}', '${auraTx.toAddress || ''}', ${auraTx.amount || null}, ${auraTx.rewardAmount || null}, '${auraTx.denom || ''}', FROM_UNIXTIME(${auraTx.timeStamp.valueOf()/1000}), '${auraTx.txHash}', '${auraTx.internalChainId}'),`;
         }
         // console.log(query);
         query = query.substring(0, query.length - 1) + ';';
