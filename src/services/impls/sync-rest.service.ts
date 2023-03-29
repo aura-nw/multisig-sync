@@ -126,12 +126,11 @@ export class SyncRestService implements ISyncRestService {
         try {
             const safeAddresses = _.keyBy(listSafes, 'safeAddress');
             // Get the current latest block height on network
-            const height = (
-                await axios.default.get(
-                    this.horoscopeApi +
-                        `block?chainid=${network.chainId}&pageLimit=1`,
-                )
-            ).data.data.blocks[0].block.header.height;
+            const requestResult = await axios.default.get(
+                this.horoscopeApi +
+                    `block?chainid=${network.chainId}&pageLimit=1`,
+            )
+            const height = requestResult.data.data.blocks[0].block.header.height;
 
             // Get the last block height from cache (if exists) minus 2 blocks
             let cacheLastHeight = await this.redisClient.get(this.cacheKey);

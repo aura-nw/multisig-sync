@@ -335,6 +335,8 @@ export class CommonService {
                                 txMessage.typeUrl =
                                     MESSAGE_ACTION.EXECUTE_CONTRACT;
                                 txMessage.fromAddress = msg.sender;
+                                txMessage.amount = null;
+                                txMessage.toAddress = null;
                                 txMessage.contractAddress = msg.contract;
                                 listTxMessages.push(txMessage);
                                 break;
