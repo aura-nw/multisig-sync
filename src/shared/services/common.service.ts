@@ -23,6 +23,7 @@ export class CommonService {
         MESSAGE_ACTION.MSG_UNDELEGATE,
         MESSAGE_ACTION.MSG_WITHDRAW_REWARDS,
         MESSAGE_ACTION.MSG_VOTE,
+        MESSAGE_ACTION.EXECUTE_CONTRACT,
     ];
     private listMessageStake = [
         MESSAGE_ACTION.MSG_DELEGATE,
@@ -325,6 +326,16 @@ export class CommonService {
                                 txMessage.fromAddress = msg.voter;
                                 txMessage.amount = null;
                                 txMessage.toAddress = null;
+                                listTxMessages.push(txMessage);
+                                break;
+                            case MESSAGE_ACTION.EXECUTE_CONTRACT:
+                                if (!safes[msg.sender]) break;
+                                relatedSafeAddress.push(msg.sender);
+
+                                txMessage.typeUrl =
+                                    MESSAGE_ACTION.EXECUTE_CONTRACT;
+                                txMessage.fromAddress = msg.sender;
+                                txMessage.contractAddress = msg.contract;
                                 listTxMessages.push(txMessage);
                                 break;
                         }
