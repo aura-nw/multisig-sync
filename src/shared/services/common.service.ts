@@ -340,6 +340,15 @@ export class CommonService {
                                 txMessage.contractAddress = msg.contract;
                                 listTxMessages.push(txMessage);
                                 break;
+                            default:
+                                const relatedSafeAddr = this.getRelatedAddrOnAnyMsg(safes, msg);
+                                if (relatedSafeAddr) {
+                                    // save any msg
+                                    relatedSafeAddress.push(relatedSafeAddr)
+                                    txMessage.typeUrl = type;
+                                    listTxMessages.push(txMessage);
+                                }
+                                break;
                         }
                     });
                 if (listTxMessages.length > 0) {
@@ -412,5 +421,13 @@ export class CommonService {
         } catch (error) {
             throw error;
         }
+    }
+
+    private getRelatedAddrOnAnyMsg(safes: any, msg: any): string {
+        for (const key of Object.keys(msg)) {
+            const value = msg[key];
+            if (typeof value === 'string' && safes[value]) return value;
+        }
+        return undefined;
     }
 }
