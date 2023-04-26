@@ -55,302 +55,287 @@ export class CommonService {
                 let auraTxAmount = null;
                 let auraTxRewardAmount = null;
 
-                txs.tx.body.messages
-                    .filter((msg) =>
-                        this.listMessageAction.includes(msg['@type']),
-                    )
-                    .map((msg, index) => {
-                        const type = msg['@type'];
-                        const txMessage = new Message();
-                        switch (type) {
-                            case MESSAGE_ACTION.MSG_SEND:
-                                relatedSafeAddress.push(
-                                    ...[
-                                        msg.from_address,
-                                        msg.to_address,
-                                    ].filter((address) => safes[address]),
-                                );
+                txs.tx.body.messages.map((msg, index) => {
+                    const type = msg['@type'];
+                    const txMessage = new Message();
+                    switch (type) {
+                        case MESSAGE_ACTION.MSG_SEND:
+                            relatedSafeAddress.push(
+                                ...[msg.from_address, msg.to_address].filter(
+                                    (address) => safes[address],
+                                ),
+                            );
 
-                                if (relatedSafeAddress.length === 0) break;
+                            if (relatedSafeAddress.length === 0) break;
 
-                                txMessage.typeUrl = MESSAGE_ACTION.MSG_SEND;
-                                txMessage.fromAddress = msg.from_address;
-                                txMessage.toAddress = msg.to_address;
-                                txMessage.amount = msg.amount[0].amount;
-                                auraTxAmount += parseFloat(
-                                    msg.amount[0].amount,
-                                );
-                                listTxMessages.push(txMessage);
-                                break;
-                            case MESSAGE_ACTION.MSG_MULTI_SEND:
-                                txMessage.typeUrl =
-                                    MESSAGE_ACTION.MSG_MULTI_SEND;
-                                txMessage.fromAddress = msg.inputs[0].address;
-                                msg.outputs
-                                    .filter(
-                                        (output) =>
-                                            safes[msg.inputs[0].address] ||
-                                            safes[output.address],
-                                    )
-                                    .map((output) => {
-                                        txMessage.toAddress = output.address;
-                                        txMessage.amount =
-                                            output.coins[0].amount;
-                                        auraTxAmount += parseFloat(
-                                            output.coins[0].amount,
-                                        );
-                                        listTxMessages.push(txMessage);
-                                    });
-
-                                relatedSafeAddress = [
-                                    ...msg.inputs.map(
-                                        (input: Input) => input.address,
-                                    ),
-                                    ...msg.outputs.map(
-                                        (output: Output) => output.address,
-                                    ),
-                                ].filter((address: string) => safes[address]);
-                                break;
-                            case MESSAGE_ACTION.MSG_DELEGATE:
-                                if (!safes[msg.delegator_address]) break;
-                                relatedSafeAddress.push(msg.delegator_address);
-
-                                txMessage.typeUrl = MESSAGE_ACTION.MSG_DELEGATE;
-                                txMessage.fromAddress = msg.validator_address;
-                                txMessage.toAddress = msg.delegator_address;
-                                txMessage.amount = null;
-                                auraTxAmount += parseFloat(msg.amount.amount);
-                                if (txs.tx_response.logs.length > 0) {
-                                    if (
-                                        txs.tx_response.logs[index].events.find(
-                                            (event) =>
-                                                event.type ===
-                                                CONST_CHAR.WITHDRAW_REWARDS,
-                                        )
-                                    ) {
-                                        txMessage.amount = txs.tx_response.logs[
-                                            index
-                                        ].events
-                                            .find(
-                                                (event) =>
-                                                    event.type ===
-                                                    CONST_CHAR.WITHDRAW_REWARDS,
-                                            )
-                                            .attributes.find(
-                                                (attr) =>
-                                                    attr.key ===
-                                                    CONST_CHAR.AMOUNT,
-                                            )
-                                            .value.match(/\d+/g)[0];
-                                        auraTxRewardAmount += parseFloat(
-                                            txMessage.amount,
-                                        );
-                                    }
-                                }
-                                listTxMessages.push(txMessage);
-                                break;
-                            case MESSAGE_ACTION.MSG_REDELEGATE:
-                                if (!safes[msg.delegator_address]) break;
-                                relatedSafeAddress.push(msg.delegator_address);
-
-                                let withdraw_rewards = null;
-                                txMessage.typeUrl =
-                                    MESSAGE_ACTION.MSG_REDELEGATE;
-                                txMessage.fromAddress = null;
-                                txMessage.toAddress = msg.delegator_address;
-                                txMessage.amount = null;
-                                auraTxAmount += parseFloat(msg.amount.amount);
-                                if (txs.tx_response.logs.length > 0) {
-                                    if (
-                                        txs.tx_response.logs[index].events.find(
-                                            (event) =>
-                                                event.type ===
-                                                CONST_CHAR.WITHDRAW_REWARDS,
-                                        )
-                                    ) {
-                                        txMessage.fromAddress =
-                                            txs.tx_response.logs[index].events
-                                                .find(
-                                                    (event) =>
-                                                        event.type ===
-                                                        CONST_CHAR.WITHDRAW_REWARDS,
-                                                )
-                                                .attributes.find(
-                                                    (attr) =>
-                                                        attr.key ===
-                                                        CONST_CHAR.VALIDATOR,
-                                                ).value;
-                                        txMessage.amount = txs.tx_response.logs[
-                                            index
-                                        ].events
-                                            .find(
-                                                (event) =>
-                                                    event.type ===
-                                                    CONST_CHAR.WITHDRAW_REWARDS,
-                                            )
-                                            .attributes.find(
-                                                (attr) =>
-                                                    attr.key ===
-                                                    CONST_CHAR.AMOUNT,
-                                            )
-                                            .value.match(/\d+/g)[0];
-                                        auraTxRewardAmount += parseFloat(
-                                            txMessage.amount,
-                                        );
-                                        withdraw_rewards = txs.tx_response.logs[
-                                            index
-                                        ].events.find(
-                                            (event) =>
-                                                event.type ===
-                                                CONST_CHAR.WITHDRAW_REWARDS,
-                                        );
-                                    }
-                                }
-                                listTxMessages.push(txMessage);
-                                if (withdraw_rewards) {
-                                    if (
-                                        withdraw_rewards.attributes.length > 2
-                                    ) {
-                                        const txMessageDst = new Message();
-                                        txMessageDst.typeUrl =
-                                            MESSAGE_ACTION.MSG_REDELEGATE;
-                                        txMessageDst.toAddress =
-                                            msg.delegator_address;
-                                        txMessageDst.fromAddress =
-                                            txs.tx_response.logs[
-                                                index
-                                            ].events.find(
-                                                (event) =>
-                                                    event.type ===
-                                                    CONST_CHAR.WITHDRAW_REWARDS,
-                                            ).attributes[3].value;
-                                        txMessageDst.amount =
-                                            txs.tx_response.logs[index].events
-                                                .find(
-                                                    (event) =>
-                                                        event.type ===
-                                                        CONST_CHAR.WITHDRAW_REWARDS,
-                                                )
-                                                .attributes[2].value.match(
-                                                    /\d+/g,
-                                                )[0];
-                                        auraTxRewardAmount += parseFloat(
-                                            txMessageDst.amount,
-                                        );
-                                        listTxMessages.push(txMessageDst);
-                                    }
-                                }
-                                break;
-                            case MESSAGE_ACTION.MSG_UNDELEGATE:
-                                if (!safes[msg.delegator_address]) break;
-                                relatedSafeAddress.push(msg.delegator_address);
-
-                                txMessage.typeUrl =
-                                    MESSAGE_ACTION.MSG_UNDELEGATE;
-                                txMessage.fromAddress = msg.validator_address;
-                                txMessage.toAddress = msg.delegator_address;
-                                txMessage.amount = null;
-                                auraTxAmount += parseFloat(msg.amount.amount);
-                                if (txs.tx_response.logs.length > 0) {
-                                    if (
-                                        txs.tx_response.logs[index].events.find(
-                                            (event) =>
-                                                event.type ===
-                                                CONST_CHAR.WITHDRAW_REWARDS,
-                                        )
-                                    ) {
-                                        txMessage.amount = txs.tx_response.logs[
-                                            index
-                                        ].events
-                                            .find(
-                                                (event) =>
-                                                    event.type ===
-                                                    CONST_CHAR.WITHDRAW_REWARDS,
-                                            )
-                                            .attributes.find(
-                                                (attr) =>
-                                                    attr.key ===
-                                                    CONST_CHAR.AMOUNT,
-                                            )
-                                            .value.match(/\d+/g)[0];
-                                        auraTxRewardAmount += parseFloat(
-                                            txMessage.amount,
-                                        );
-                                    }
-                                }
-                                listTxMessages.push(txMessage);
-                                break;
-                            case MESSAGE_ACTION.MSG_WITHDRAW_REWARDS:
-                                if (!safes[msg.delegator_address]) break;
-                                relatedSafeAddress.push(msg.delegator_address);
-
-                                txMessage.typeUrl =
-                                    MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
-                                txMessage.fromAddress = msg.validator_address;
-                                txMessage.toAddress = msg.delegator_address;
-                                txMessage.amount = null;
-                                if (txs.tx_response.logs.length > 0) {
-                                    if (
-                                        txs.tx_response.logs[index].events.find(
-                                            (event) =>
-                                                event.type ===
-                                                CONST_CHAR.WITHDRAW_REWARDS,
-                                        )
-                                    ) {
-                                        txMessage.amount = txs.tx_response.logs[
-                                            index
-                                        ].events
-                                            .find(
-                                                (event) =>
-                                                    event.type ===
-                                                    CONST_CHAR.WITHDRAW_REWARDS,
-                                            )
-                                            .attributes.find(
-                                                (attr) =>
-                                                    attr.key ===
-                                                    CONST_CHAR.AMOUNT,
-                                            )
-                                            .value.match(/\d+/g)[0];
-                                        auraTxRewardAmount += parseFloat(
-                                            txMessage.amount,
-                                        );
-                                    }
-                                }
-                                listTxMessages.push(txMessage);
-                                break;
-                            case MESSAGE_ACTION.MSG_VOTE:
-                                if (!safes[msg.voter]) break;
-                                relatedSafeAddress.push(msg.voter);
-
-                                txMessage.typeUrl = MESSAGE_ACTION.MSG_VOTE;
-                                txMessage.fromAddress = msg.voter;
-                                txMessage.amount = null;
-                                txMessage.toAddress = null;
-                                listTxMessages.push(txMessage);
-                                break;
-                            case MESSAGE_ACTION.EXECUTE_CONTRACT:
-                                if (!safes[msg.sender]) break;
-                                relatedSafeAddress.push(msg.sender);
-
-                                txMessage.typeUrl =
-                                    MESSAGE_ACTION.EXECUTE_CONTRACT;
-                                txMessage.fromAddress = msg.sender;
-                                txMessage.amount = null;
-                                txMessage.toAddress = null;
-                                txMessage.contractAddress = msg.contract;
-                                listTxMessages.push(txMessage);
-                                break;
-                            default:
-                                const relatedSafeAddr = this.getRelatedAddrOnAnyMsg(safes, msg);
-                                if (relatedSafeAddr) {
-                                    // save any msg
-                                    relatedSafeAddress.push(relatedSafeAddr)
-                                    txMessage.typeUrl = type;
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_SEND;
+                            txMessage.fromAddress = msg.from_address;
+                            txMessage.toAddress = msg.to_address;
+                            txMessage.amount = msg.amount[0].amount;
+                            auraTxAmount += parseFloat(msg.amount[0].amount);
+                            listTxMessages.push(txMessage);
+                            break;
+                        case MESSAGE_ACTION.MSG_MULTI_SEND:
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_MULTI_SEND;
+                            txMessage.fromAddress = msg.inputs[0].address;
+                            msg.outputs
+                                .filter(
+                                    (output) =>
+                                        safes[msg.inputs[0].address] ||
+                                        safes[output.address],
+                                )
+                                .map((output) => {
+                                    txMessage.toAddress = output.address;
+                                    txMessage.amount = output.coins[0].amount;
+                                    auraTxAmount += parseFloat(
+                                        output.coins[0].amount,
+                                    );
                                     listTxMessages.push(txMessage);
+                                });
+
+                            relatedSafeAddress = [
+                                ...msg.inputs.map(
+                                    (input: Input) => input.address,
+                                ),
+                                ...msg.outputs.map(
+                                    (output: Output) => output.address,
+                                ),
+                            ].filter((address: string) => safes[address]);
+                            break;
+                        case MESSAGE_ACTION.MSG_DELEGATE:
+                            if (!safes[msg.delegator_address]) break;
+                            relatedSafeAddress.push(msg.delegator_address);
+
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_DELEGATE;
+                            txMessage.fromAddress = msg.validator_address;
+                            txMessage.toAddress = msg.delegator_address;
+                            txMessage.amount = null;
+                            auraTxAmount += parseFloat(msg.amount.amount);
+                            if (txs.tx_response.logs.length > 0) {
+                                if (
+                                    txs.tx_response.logs[index].events.find(
+                                        (event) =>
+                                            event.type ===
+                                            CONST_CHAR.WITHDRAW_REWARDS,
+                                    )
+                                ) {
+                                    txMessage.amount = txs.tx_response.logs[
+                                        index
+                                    ].events
+                                        .find(
+                                            (event) =>
+                                                event.type ===
+                                                CONST_CHAR.WITHDRAW_REWARDS,
+                                        )
+                                        .attributes.find(
+                                            (attr) =>
+                                                attr.key === CONST_CHAR.AMOUNT,
+                                        )
+                                        .value.match(/\d+/g)[0];
+                                    auraTxRewardAmount += parseFloat(
+                                        txMessage.amount,
+                                    );
                                 }
-                                break;
-                        }
-                    });
+                            }
+                            listTxMessages.push(txMessage);
+                            break;
+                        case MESSAGE_ACTION.MSG_REDELEGATE:
+                            if (!safes[msg.delegator_address]) break;
+                            relatedSafeAddress.push(msg.delegator_address);
+
+                            let withdraw_rewards = null;
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_REDELEGATE;
+                            txMessage.fromAddress = null;
+                            txMessage.toAddress = msg.delegator_address;
+                            txMessage.amount = null;
+                            auraTxAmount += parseFloat(msg.amount.amount);
+                            if (txs.tx_response.logs.length > 0) {
+                                if (
+                                    txs.tx_response.logs[index].events.find(
+                                        (event) =>
+                                            event.type ===
+                                            CONST_CHAR.WITHDRAW_REWARDS,
+                                    )
+                                ) {
+                                    txMessage.fromAddress =
+                                        txs.tx_response.logs[index].events
+                                            .find(
+                                                (event) =>
+                                                    event.type ===
+                                                    CONST_CHAR.WITHDRAW_REWARDS,
+                                            )
+                                            .attributes.find(
+                                                (attr) =>
+                                                    attr.key ===
+                                                    CONST_CHAR.VALIDATOR,
+                                            ).value;
+                                    txMessage.amount = txs.tx_response.logs[
+                                        index
+                                    ].events
+                                        .find(
+                                            (event) =>
+                                                event.type ===
+                                                CONST_CHAR.WITHDRAW_REWARDS,
+                                        )
+                                        .attributes.find(
+                                            (attr) =>
+                                                attr.key === CONST_CHAR.AMOUNT,
+                                        )
+                                        .value.match(/\d+/g)[0];
+                                    auraTxRewardAmount += parseFloat(
+                                        txMessage.amount,
+                                    );
+                                    withdraw_rewards = txs.tx_response.logs[
+                                        index
+                                    ].events.find(
+                                        (event) =>
+                                            event.type ===
+                                            CONST_CHAR.WITHDRAW_REWARDS,
+                                    );
+                                }
+                            }
+                            listTxMessages.push(txMessage);
+                            if (withdraw_rewards) {
+                                if (withdraw_rewards.attributes.length > 2) {
+                                    const txMessageDst = new Message();
+                                    txMessageDst.typeUrl =
+                                        MESSAGE_ACTION.MSG_REDELEGATE;
+                                    txMessageDst.toAddress =
+                                        msg.delegator_address;
+                                    txMessageDst.fromAddress =
+                                        txs.tx_response.logs[index].events.find(
+                                            (event) =>
+                                                event.type ===
+                                                CONST_CHAR.WITHDRAW_REWARDS,
+                                        ).attributes[3].value;
+                                    txMessageDst.amount = txs.tx_response.logs[
+                                        index
+                                    ].events
+                                        .find(
+                                            (event) =>
+                                                event.type ===
+                                                CONST_CHAR.WITHDRAW_REWARDS,
+                                        )
+                                        .attributes[2].value.match(/\d+/g)[0];
+                                    auraTxRewardAmount += parseFloat(
+                                        txMessageDst.amount,
+                                    );
+                                    listTxMessages.push(txMessageDst);
+                                }
+                            }
+                            break;
+                        case MESSAGE_ACTION.MSG_UNDELEGATE:
+                            if (!safes[msg.delegator_address]) break;
+                            relatedSafeAddress.push(msg.delegator_address);
+
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_UNDELEGATE;
+                            txMessage.fromAddress = msg.validator_address;
+                            txMessage.toAddress = msg.delegator_address;
+                            txMessage.amount = null;
+                            auraTxAmount += parseFloat(msg.amount.amount);
+                            if (txs.tx_response.logs.length > 0) {
+                                if (
+                                    txs.tx_response.logs[index].events.find(
+                                        (event) =>
+                                            event.type ===
+                                            CONST_CHAR.WITHDRAW_REWARDS,
+                                    )
+                                ) {
+                                    txMessage.amount = txs.tx_response.logs[
+                                        index
+                                    ].events
+                                        .find(
+                                            (event) =>
+                                                event.type ===
+                                                CONST_CHAR.WITHDRAW_REWARDS,
+                                        )
+                                        .attributes.find(
+                                            (attr) =>
+                                                attr.key === CONST_CHAR.AMOUNT,
+                                        )
+                                        .value.match(/\d+/g)[0];
+                                    auraTxRewardAmount += parseFloat(
+                                        txMessage.amount,
+                                    );
+                                }
+                            }
+                            listTxMessages.push(txMessage);
+                            break;
+                        case MESSAGE_ACTION.MSG_WITHDRAW_REWARDS:
+                            if (!safes[msg.delegator_address]) break;
+                            relatedSafeAddress.push(msg.delegator_address);
+
+                            txMessage.typeUrl =
+                                MESSAGE_ACTION.MSG_WITHDRAW_REWARDS;
+                            txMessage.fromAddress = msg.validator_address;
+                            txMessage.toAddress = msg.delegator_address;
+                            txMessage.amount = null;
+                            if (txs.tx_response.logs.length > 0) {
+                                if (
+                                    txs.tx_response.logs[index].events.find(
+                                        (event) =>
+                                            event.type ===
+                                            CONST_CHAR.WITHDRAW_REWARDS,
+                                    )
+                                ) {
+                                    txMessage.amount = txs.tx_response.logs[
+                                        index
+                                    ].events
+                                        .find(
+                                            (event) =>
+                                                event.type ===
+                                                CONST_CHAR.WITHDRAW_REWARDS,
+                                        )
+                                        .attributes.find(
+                                            (attr) =>
+                                                attr.key === CONST_CHAR.AMOUNT,
+                                        )
+                                        .value.match(/\d+/g)[0];
+                                    auraTxRewardAmount += parseFloat(
+                                        txMessage.amount,
+                                    );
+                                }
+                            }
+                            listTxMessages.push(txMessage);
+                            break;
+                        case MESSAGE_ACTION.MSG_VOTE:
+                            if (!safes[msg.voter]) break;
+                            relatedSafeAddress.push(msg.voter);
+
+                            txMessage.typeUrl = MESSAGE_ACTION.MSG_VOTE;
+                            txMessage.fromAddress = msg.voter;
+                            txMessage.amount = null;
+                            txMessage.toAddress = null;
+                            listTxMessages.push(txMessage);
+                            break;
+                        case MESSAGE_ACTION.EXECUTE_CONTRACT:
+                            if (!safes[msg.sender]) break;
+                            relatedSafeAddress.push(msg.sender);
+
+                            txMessage.typeUrl = MESSAGE_ACTION.EXECUTE_CONTRACT;
+                            txMessage.fromAddress = msg.sender;
+                            txMessage.amount = null;
+                            txMessage.toAddress = null;
+                            txMessage.contractAddress = msg.contract;
+                            listTxMessages.push(txMessage);
+                            break;
+                        default:
+                            const relatedSafeAddr = this.getRelatedAddrOnAnyMsg(
+                                safes,
+                                msg,
+                            );
+                            if (relatedSafeAddr) {
+                                // save any msg
+                                relatedSafeAddress.push(relatedSafeAddr);
+                                txMessage.typeUrl = type;
+                                txMessage.fromAddress = relatedSafeAddr;
+                                txMessage.amount = null;
+                                txMessage.toAddress = null;
+                                listTxMessages.push(txMessage);
+                            }
+                            break;
+                    }
+                });
                 if (listTxMessages.length > 0) {
                     syncTxMessages.push(listTxMessages);
                     const auraTx = new AuraTx();
