@@ -348,7 +348,7 @@ export class CommonService {
                         txs.tx.auth_info.fee.amount[0].amount,
                         10,
                     );
-                    auraTx.rawLogs = txs.tx_response.raw_log;
+                    auraTx.rawLogs = JSON.stringify(txs.tx_response.raw_log);
                     auraTx.fromAddress = this.listMessageStake.includes(
                         listTxMessages[0].typeUrl,
                     )
