@@ -4,36 +4,27 @@ import { BaseRepository } from './base.repository';
 import { ObjectLiteral, Repository } from 'typeorm';
 import { ENTITIES_CONFIG } from '../../module.config';
 import { IChainRepository } from '../ichain.repository';
+import { Chain } from 'src/entities';
 
 @Injectable()
 export class ChainRepository
     extends BaseRepository
-    implements IChainRepository
-{
+    implements IChainRepository {
     private readonly _logger = new Logger(ChainRepository.name);
     constructor(
         @InjectRepository(ENTITIES_CONFIG.CHAIN)
-        private readonly repos: Repository<ObjectLiteral>,
+        private readonly repos: Repository<Chain>,
     ) {
         super(repos);
     }
 
     async findChainByChainId(chainId: string) {
-        let query = this.repos.createQueryBuilder('chain');
-        query = query
-            .select([
-                'chain.id as id', 
-                'chain.chainId as chainId', 
-                'chain.name as chainName', 
-                'chain.websocket as websocket', 
-                'chain.rest as rest', 
-                'chain.rpc as rpc', 
-                'chain.denom as denom',
-            ])
-            .where('chain.chainId = :chainId', {
-                chainId,
-            });
-        let res = await query.getRawOne();
-        return res;
+        const result = await this.repos.findOne({
+            where: {
+                chainId
+            }
+        })
+
+        return result;
     }
 }
