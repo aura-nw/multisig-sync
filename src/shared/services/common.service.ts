@@ -319,6 +319,17 @@ export class CommonService {
                             txMessage.contractAddress = msg.contract;
                             listTxMessages.push(txMessage);
                             break;
+                        case MESSAGE_ACTION.IBC_TRANSFER:
+                            if (!safes[msg.sender]) break;
+                            relatedSafeAddress.push(msg.sender);
+
+                            txMessage.typeUrl = MESSAGE_ACTION.IBC_TRANSFER;
+                            txMessage.fromAddress = msg.sender;
+                            txMessage.toAddress = msg.receiver;
+                            txMessage.amount = msg.token.amount;
+                            txMessage.denom = msg.token.denom;
+                            listTxMessages.push(txMessage);
+                            break;
                         default:
                             const relatedSafeAddr = this.getRelatedAddrOnAnyMsg(
                                 safes,

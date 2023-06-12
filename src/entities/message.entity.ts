@@ -21,6 +21,9 @@ export class Message extends BaseEntityAutoId {
     @Column({ name: 'Amount' })
     amount: string;
 
+    @Column({ name: 'Denom' })
+    denom: string;
+
     @Column({ name: 'DelegatorAddress' })
     delegatorAddress: string;
 
