@@ -22,6 +22,7 @@ export enum MESSAGE_ACTION {
     MSG_VOTE = '/cosmos.gov.v1beta1.MsgVote',
     EXECUTE_CONTRACT = '/cosmwasm.wasm.v1.MsgExecuteContract',
     IBC_TRANSFER = '/ibc.applications.transfer.v1.MsgTransfer',
+    IBC_RECEIVE = '/ibc.core.channel.v1.MsgRecvPacket',
 }
 
 export enum CONST_CHAR {
