@@ -330,6 +330,33 @@ export class CommonService {
                             txMessage.denom = msg.token.denom;
                             listTxMessages.push(txMessage);
                             break;
+                        case MESSAGE_ACTION.IBC_RECEIVE:
+                            const eventLog = txs.tx_response.logs[index].events.find((e) => e.type === 'transfer');
+                            if (eventLog) {
+                                const sender = eventLog.attributes.find((att) => att.key === 'sender').value;
+                                const recipient = eventLog.attributes.find((att) => att.key === 'recipient').value;
+                                const amountDenom = eventLog.attributes.find((att) => att.key === 'amount').value;
+                                relatedSafeAddress.push(
+                                    ...[ sender, recipient].filter(
+                                        (address) => safes[address],
+                                    ),
+                                );
+                                if (relatedSafeAddress.length === 0) break;
+
+                                txMessage.typeUrl = MESSAGE_ACTION.IBC_RECEIVE;
+                                txMessage.fromAddress = sender;
+                                txMessage.toAddress = recipient;
+                                const [amount, denom] = amountDenom.split('ibc');
+                                txMessage.amount = amount;
+                                txMessage.denom = `ibc${denom}`;
+                                auraTxAmount += parseFloat(amount);
+                                
+                                listTxMessages.push(txMessage);
+                                break;
+                            }
+                            
+                            
+
                         default:
                             const relatedSafeAddr = this.getRelatedAddrOnAnyMsg(
                                 safes,

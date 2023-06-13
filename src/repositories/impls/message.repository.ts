@@ -18,12 +18,18 @@ export class MessageRepository
     }
 
     async insertBulkMessage(listTxMessages: any[]) {
-        listTxMessages = listTxMessages.filter(txMessage => txMessage.auraTxId !== 0);
+        listTxMessages = listTxMessages.filter(
+            (txMessage) => txMessage.auraTxId !== 0,
+        );
         console.log(listTxMessages);
         if (listTxMessages.length <= 0) return;
-        let query = `INSERT IGNORE INTO Message(CreatedAt, UpdatedAt, Id, TxId, AuraTxId, TypeUrl, FromAddress, ToAddress, Amount, DelegatorAddress, ValidatorAddress, ValidatorSrcAddress, ValidatorDstAddress) VALUES`;
-        listTxMessages.map(tm => {
-            query += ` (DEFAULT, DEFAULT, DEFAULT, ${null}, ${tm.auraTxId}, '${tm.typeUrl}', '${tm.fromAddress}', '${tm.toAddress}', ${tm.amount}, ${null}, ${null}, ${null}, ${null}),`;
+        let query = `INSERT IGNORE INTO Message(CreatedAt, UpdatedAt, Id, TxId, AuraTxId, TypeUrl, FromAddress, ToAddress, Amount, Denom, DelegatorAddress, ValidatorAddress, ValidatorSrcAddress, ValidatorDstAddress) VALUES`;
+        listTxMessages.map((tm) => {
+            query += ` (DEFAULT, DEFAULT, DEFAULT, ${null}, ${tm.auraTxId}, '${
+                tm.typeUrl
+            }', '${tm.fromAddress}', '${tm.toAddress}', ${tm.amount}, '${
+                tm.denom
+            }', ${null}, ${null}, ${null}, ${null}),`;
         });
         // console.log(query);
         query = query.substring(0, query.length - 1) + ';';
