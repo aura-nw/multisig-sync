@@ -309,12 +309,23 @@ export class CommonService {
                             listTxMessages.push(txMessage);
                             break;
                         case MESSAGE_ACTION.EXECUTE_CONTRACT:
+                            let fromAddress = '';
                             let toAddress = '';
                             const addrs: string[] = [];
+
+                            // transer cw20
                             if (safes[msg.msg?.transfer?.recipient]) {
+                                fromAddress = msg.sender;
                                 toAddress = msg.msg?.transfer?.recipient;
                                 addrs.push(toAddress);
                             }
+
+                            // mint cw20
+                            if (safes[msg.msg?.mint?.recipient]) {
+                                toAddress = msg.msg?.mint?.recipient;
+                                addrs.push(toAddress);
+                            }
+
                             if (safes[msg.sender]) addrs.push(msg.sender);
 
                             if (addrs.length === 0) break;
@@ -322,7 +333,7 @@ export class CommonService {
                             relatedSafeAddress.push(...addrs);
 
                             txMessage.typeUrl = MESSAGE_ACTION.EXECUTE_CONTRACT;
-                            txMessage.fromAddress = msg.sender;
+                            txMessage.fromAddress = fromAddress;
                             txMessage.amount = null;
                             txMessage.toAddress = toAddress;
                             txMessage.contractAddress = msg.contract;
