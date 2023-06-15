@@ -309,13 +309,22 @@ export class CommonService {
                             listTxMessages.push(txMessage);
                             break;
                         case MESSAGE_ACTION.EXECUTE_CONTRACT:
-                            if (!safes[msg.sender]) break;
-                            relatedSafeAddress.push(msg.sender);
+                            let toAddress = '';
+                            const addrs: string[] = [];
+                            if (safes[msg.msg?.transfer?.recipient]) {
+                                toAddress = msg.msg?.transfer?.recipient;
+                                addrs.push(toAddress);
+                            }
+                            if (safes[msg.sender]) addrs.push(msg.sender);
+
+                            if (addrs.length === 0) break;
+
+                            relatedSafeAddress.push(...addrs);
 
                             txMessage.typeUrl = MESSAGE_ACTION.EXECUTE_CONTRACT;
                             txMessage.fromAddress = msg.sender;
                             txMessage.amount = null;
-                            txMessage.toAddress = null;
+                            txMessage.toAddress = toAddress;
                             txMessage.contractAddress = msg.contract;
                             listTxMessages.push(txMessage);
                             break;
@@ -331,13 +340,21 @@ export class CommonService {
                             listTxMessages.push(txMessage);
                             break;
                         case MESSAGE_ACTION.IBC_RECEIVE:
-                            const eventLog = txs.tx_response.logs[index].events.find((e) => e.type === 'transfer');
+                            const eventLog = txs.tx_response.logs[
+                                index
+                            ].events.find((e) => e.type === 'transfer');
                             if (eventLog) {
-                                const sender = eventLog.attributes.find((att) => att.key === 'sender').value;
-                                const recipient = eventLog.attributes.find((att) => att.key === 'recipient').value;
-                                const amountDenom = eventLog.attributes.find((att) => att.key === 'amount').value;
+                                const sender = eventLog.attributes.find(
+                                    (att) => att.key === 'sender',
+                                ).value;
+                                const recipient = eventLog.attributes.find(
+                                    (att) => att.key === 'recipient',
+                                ).value;
+                                const amountDenom = eventLog.attributes.find(
+                                    (att) => att.key === 'amount',
+                                ).value;
                                 relatedSafeAddress.push(
-                                    ...[ sender, recipient].filter(
+                                    ...[sender, recipient].filter(
                                         (address) => safes[address],
                                     ),
                                 );
@@ -346,16 +363,15 @@ export class CommonService {
                                 txMessage.typeUrl = MESSAGE_ACTION.IBC_RECEIVE;
                                 txMessage.fromAddress = sender;
                                 txMessage.toAddress = recipient;
-                                const [amount, denom] = amountDenom.split('ibc');
+                                const [amount, denom] =
+                                    amountDenom.split('ibc');
                                 txMessage.amount = amount;
                                 txMessage.denom = `ibc${denom}`;
                                 auraTxAmount += parseFloat(amount);
-                                
+
                                 listTxMessages.push(txMessage);
                                 break;
                             }
-                            
-                            
 
                         default:
                             const relatedSafeAddr = this.getRelatedAddrOnAnyMsg(
