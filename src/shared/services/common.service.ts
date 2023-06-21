@@ -431,6 +431,7 @@ export class CommonService {
                     auraTx.amount = auraTxAmount;
                     auraTx.rewardAmount = auraTxRewardAmount;
                     auraTx.denom = chain.denom;
+                    auraTx.contractAddress = listTxMessages[0].contractAddress;
                     auraTx.timeStamp = new Date(txs.tx_response.timestamp);
                     auraTx.internalChainId = chain.id;
                     syncTxs.push(auraTx);
