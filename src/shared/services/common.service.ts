@@ -326,7 +326,11 @@ export class CommonService {
                                 addrs.push(toAddress);
                             }
 
-                            if (safes[msg.sender]) addrs.push(msg.sender);
+                            if (safes[msg.sender]) {
+                                fromAddress = msg.sender;
+                                toAddress = msg.msg?.transfer?.recipient;
+                                addrs.push(msg.sender);
+                            }
 
                             if (addrs.length === 0) break;
 
