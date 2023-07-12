@@ -8,7 +8,6 @@ import {
     Processor,
 } from '@nestjs/bull';
 import { Logger, Inject } from '@nestjs/common';
-import * as axios from 'axios';
 import { Job } from 'bull';
 import { CommonService } from '../shared/services/common.service';
 import { REPOSITORY_INTERFACE } from '../module.config';
@@ -19,6 +18,7 @@ import { ConfigService } from '../shared/services/config.service';
 export class SyncRestProcessor {
     private readonly logger = new Logger(SyncRestProcessor.name);
     private horoscopeApi;
+    private graphqlPrefix;
 
     constructor(
         private configService: ConfigService,
@@ -31,6 +31,7 @@ export class SyncRestProcessor {
         );
 
         this.horoscopeApi = this.configService.get('HOROSCOPE_API');
+        this.graphqlPrefix = this.configService.get('GRAPHQL_PREFIX');
     }
 
     @Process({
@@ -38,28 +39,48 @@ export class SyncRestProcessor {
         concurrency: 10,
     })
     async handleQueryTxByHeight(job: Job) {
-        // this.logger.log(`Handle Job: ${JSON.stringify(job.data)}`);
+        this.logger.debug(`Handle Job: ${JSON.stringify(job.data)}`);
         const result = [];
         const height = job.data.height;
         const safes = job.data.safeAddresses;
         const network = job.data.network;
-        const param = `transaction?chainid=${network.chainId}&blockHeight=${height}&needFullLog=true&pageLimit=100`;
-        let urlToCall = param;
+        const variables = {
+            height,
+            id: null,
+        };
         let done = false;
         let resultCallApi;
         while (!done) {
             try {
-                resultCallApi = await axios.default.get(
-                    this.horoscopeApi + urlToCall,
+                resultCallApi = await this.commonService.queryGraphql(
+                    this.horoscopeApi,
+                    `query getTxsByHeight($height: Int = null, $id: Int = null) {
+                    ${this.graphqlPrefix} {
+                        transaction(where: {height: {_eq: $height}, id: {_gt: $id}}) {
+                            id
+                            data
+                        }
+                    }
+                  }`,
+                    'getTxsByHeight',
+                    variables,
                 );
-                if (resultCallApi.data.data.transactions.length > 0)
-                    resultCallApi.data.data.transactions.map((res) => {
-                        result.push(res);
-                    });
-                if (resultCallApi.data.data.nextKey === null) {
-                    done = true;
+                if (
+                    resultCallApi.data[this.graphqlPrefix].transaction.length >
+                    0
+                ) {
+                    resultCallApi.data[this.graphqlPrefix].transaction.map(
+                        (res) => {
+                            result.push(res.data);
+                        },
+                    );
+                    variables.id = resultCallApi.data[
+                        this.graphqlPrefix
+                    ].transaction
+                        .map((tx) => tx.id)
+                        .sort((a, b) => b - a)[0];
                 } else {
-                    urlToCall = `${param}&nextKey=${encodeURIComponent(resultCallApi.data.data.nextKey)}`;
+                    done = true;
                 }
             } catch (error) {
                 this.logger.error(error);

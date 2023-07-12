@@ -5,7 +5,6 @@ import {
     REPOSITORY_INTERFACE,
     SERVICE_INTERFACE,
 } from './module.config';
-import { SyncWebsocketService } from './services/impls/sync-websocket.service';
 import { SharedModule } from './shared/shared.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigService } from './shared/services/config.service';
@@ -15,7 +14,6 @@ import { ChainRepository } from './repositories/impls/chain.repository';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SyncRestService } from './services/impls/sync-rest.service';
 import { HttpModule } from '@nestjs/axios';
-import { AppController } from './controllers/websocket.controller';
 import { MultisigTransactionRepository } from './repositories/impls/multisig-transaction.repository';
 import { MessageRepository } from './repositories/impls/message.repository';
 import { BullModule } from '@nestjs/bull';
@@ -28,9 +26,9 @@ const entities = [
     ENTITIES_CONFIG.SAFE,
     ENTITIES_CONFIG.CHAIN,
     ENTITIES_CONFIG.MULTISIG_TRANSACTION,
-    ENTITIES_CONFIG.MESSAGE
+    ENTITIES_CONFIG.MESSAGE,
 ];
-const controllers = [AppController];
+const controllers = [];
 const processors = [SyncRestProcessor];
 
 @Module({
@@ -53,28 +51,23 @@ const processors = [SyncRestProcessor];
                 username: process.env.REDIS_USERNAME,
                 db: parseInt(process.env.REDIS_DB, 10),
             },
-            prefix: `pyxis-safe-sync-${JSON.parse(process.env.CHAIN_SUBCRIBE)[0]}`,
+            prefix: `pyxis-safe-sync-${
+                JSON.parse(process.env.CHAIN_SUBCRIBE)[0]
+            }`,
             defaultJobOptions: {
                 removeOnComplete: true,
-                attempts: 3
-            }
+                attempts: 3,
+            },
         }),
         BullModule.registerQueue({
-            name: 'sync-rest'
+            name: 'sync-rest',
         }),
-        RedisService
+        RedisService,
     ],
-    exports: [
-        BullModule,
-        ...processors,
-    ],
+    exports: [BullModule, ...processors],
     controllers: [...controllers],
     providers: [
         // services
-        {
-            provide: SERVICE_INTERFACE.ISYNC_WEBSOCKET_SERVICE,
-            useClass: SyncWebsocketService,
-        },
         {
             provide: SERVICE_INTERFACE.ISYNC_REST_SERVICE,
             useClass: SyncRestService,
@@ -106,4 +99,4 @@ const processors = [SyncRestProcessor];
         ...processors,
     ],
 })
-export class AppModule { }
+export class AppModule {}

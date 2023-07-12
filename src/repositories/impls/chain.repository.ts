@@ -22,18 +22,18 @@ export class ChainRepository
         let query = this.repos.createQueryBuilder('chain');
         query = query
             .select([
-                'chain.id as id', 
-                'chain.chainId as chainId', 
-                'chain.name as chainName', 
-                'chain.websocket as websocket', 
-                'chain.rest as rest', 
-                'chain.rpc as rpc', 
+                'chain.id as id',
+                'chain.chainId as chainId',
+                'chain.name as chainName',
+                'chain.websocket as websocket',
+                'chain.rest as rest',
+                'chain.rpc as rpc',
                 'chain.denom as denom',
             ])
             .where('chain.chainId = :chainId', {
                 chainId,
             });
-        let res = await query.getRawOne();
+        const res = await query.getRawOne();
         return res;
     }
 }

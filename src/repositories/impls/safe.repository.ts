@@ -22,7 +22,7 @@ export class SafeRepository extends BaseRepository implements ISafeRepository {
         query = query.where('safeAddress IN (:...listAddress)', {
             listAddress: listAddress,
         });
-        let res = await query.getRawMany();
+        const res = await query.getRawMany();
         return res;
     }
 
@@ -33,21 +33,25 @@ export class SafeRepository extends BaseRepository implements ISafeRepository {
             .where('safe.safeAddress NOT IN (:...listAddress)', {
                 listAddress: listAddress,
             });
-        let res = await query.getRawMany();
+        const res = await query.getRawMany();
         return res;
     }
 
-    async findSafeByInternalChainId(internalChainId: string, lastSafeId?: number): Promise<SafeInfo[]> {
-        let query = this.repos.createQueryBuilder()
+    async findSafeByInternalChainId(
+        internalChainId: string,
+        lastSafeId?: number,
+    ): Promise<SafeInfo[]> {
+        const query = this.repos
+            .createQueryBuilder()
             .select('safeAddress, id')
             .where('internalChainId = :internalChainId', {
                 internalChainId,
             })
-            .andWhere('safeAddress != \'\'')
+            .andWhere("safeAddress != ''")
             .orderBy('id', 'DESC');
 
         if (lastSafeId) query.andWhere('id > :lastSafeId', { lastSafeId });
-        let res = await query.getRawMany();
+        const res = await query.getRawMany();
         return plainToInstance(SafeInfo, res);
     }
 }

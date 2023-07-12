@@ -1,4 +1,3 @@
-import { AuraTx } from 'src/entities/aura-tx.entity';
 import { IBaseRepository } from './ibase.repository';
 
 export interface IAuraTransactionRepository extends IBaseRepository {

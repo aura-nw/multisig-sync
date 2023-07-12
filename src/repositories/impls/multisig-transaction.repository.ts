@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ENTITIES_CONFIG } from '../../module.config';
-import { In, ObjectLiteral, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { IMultisigTransactionRepository } from '../imultisig-transaction.repository';
 import { BaseRepository } from './base.repository';
 import { AuraTx, MultisigTransaction } from '../../entities';
@@ -24,7 +24,7 @@ export class MultisigTransactionRepository
         internalChainId: number,
     ): Promise<any> {
         const status = TRANSACTION_STATUS.PENDING;
-        let query = this.repos
+        const query = this.repos
             .createQueryBuilder('multisigTransaction')
             .where('multisigTransaction.status = :status', { status })
             .andWhere("multisigTransaction.txHash != ''")
@@ -34,7 +34,7 @@ export class MultisigTransactionRepository
             )
             .limit(10)
             .select(['multisigTransaction.txHash as txHash']);
-        let res = await query.getRawMany();
+        const res = await query.getRawMany();
         return res;
     }
 

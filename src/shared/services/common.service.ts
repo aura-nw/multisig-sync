@@ -9,6 +9,7 @@ import {
     IMessageRepository,
     IMultisigTransactionRepository,
 } from '../../repositories';
+import axios from 'axios';
 
 export class CommonService {
     private readonly _logger = new Logger(CommonService.name);
@@ -36,6 +37,20 @@ export class CommonService {
         @Inject(REPOSITORY_INTERFACE.IMESSAGE_REPOSITORY)
         private messageRepository: IMessageRepository,
     ) {}
+
+    async queryGraphql(
+        url: string,
+        query: string,
+        operationName: string,
+        variables: any,
+    ) {
+        const response = await axios.post(url, {
+            query,
+            variables,
+            operationName,
+        });
+        return response.data;
+    }
 
     async handleTransactions(listTx, safes, chain) {
         const syncTxs: any[] = [],
