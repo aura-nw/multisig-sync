@@ -4,6 +4,7 @@ import { BaseRepository } from './base.repository';
 import { ObjectLiteral, Repository } from 'typeorm';
 import { ENTITIES_CONFIG } from '../../module.config';
 import { IAuraTransactionRepository } from '../iaura-tx.repository';
+import { AuraTx } from '../../entities';
 @Injectable()
 export class AuraTxRepository
     extends BaseRepository
@@ -30,9 +31,9 @@ export class AuraTxRepository
         return 0;
     }
 
-    async insertBulkTransaction(listTransations: any[]) {
+    async insertBulkTransaction(listTransations: AuraTx[]) {
         console.log(listTransations);
-        let query = `INSERT IGNORE INTO AuraTx(CreatedAt, UpdatedAt, Id, Code, GasUsed, GasWanted, Fee, Height, RawLogs, FromAddress, ToAddress, Amount, RewardAmount, Denom, TimeStamp, TxHash, InternalChainId) VALUES`;
+        let query = `INSERT IGNORE INTO AuraTx(CreatedAt, UpdatedAt, Id, Code, GasUsed, GasWanted, Fee, Height, RawLogs, FromAddress, ToAddress, Amount, RewardAmount, Denom, ContractAddress, TimeStamp, TxHash, InternalChainId) VALUES`;
         for (const auraTx of listTransations) {
             query += ` (DEFAULT, DEFAULT, DEFAULT, ${auraTx.code}, ${
                 auraTx.gasUsed
@@ -42,12 +43,16 @@ export class AuraTxRepository
                 auraTx.fromAddress || ''
             }', '${auraTx.toAddress || ''}', ${auraTx.amount || null}, ${
                 auraTx.rewardAmount || null
-            }, '${auraTx.denom || ''}', FROM_UNIXTIME(${
-                auraTx.timeStamp.valueOf() / 1000
-            }), '${auraTx.txHash}', '${auraTx.internalChainId}'),`;
+            }, '${auraTx.denom || ''}', '${
+                auraTx.contractAddress
+            }', FROM_UNIXTIME(${auraTx.timeStamp.valueOf() / 1000}), '${
+                auraTx.txHash
+            }', '${auraTx.internalChainId}'),`;
         }
         // console.log(query);
         query = query.substring(0, query.length - 1) + ';';
         return await this.repos.query(query);
+
+        // return await this.repos.save(listTransations);
     }
 }

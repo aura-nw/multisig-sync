@@ -29,19 +29,23 @@ async function bootstrap() {
     const serverAdapter = new ExpressAdapter();
     serverAdapter.setBasePath('/admin/queues');
 
-    const queue = new BullAdapter(Queue(
-        'sync-rest',
-        `redis://${process.env.REDIS_USERNAME}:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}/${process.env.REDIS_DB}`,
-        {
-            prefix: `pyxis-safe-sync-${JSON.parse(process.env.CHAIN_SUBCRIBE)[0]}`,
-        }
-    ));
+    const queue = new BullAdapter(
+        Queue(
+            'sync-rest',
+            `redis://${process.env.REDIS_USERNAME}:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}/${process.env.REDIS_DB}`,
+            {
+                prefix: `pyxis-safe-sync-${
+                    JSON.parse(process.env.CHAIN_SUBCRIBE)[0]
+                }`,
+            },
+        ),
+    );
     createBullBoard({
         queues: [queue],
-        serverAdapter
+        serverAdapter,
     });
     app.use('/admin/queues', serverAdapter.getRouter());
 
-    await app.listen(3000);
+    await app.listen();
 }
 bootstrap();

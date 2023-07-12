@@ -21,6 +21,7 @@ import { ConfigModule } from '@nestjs/config';
 import { SyncRestProcessor } from './processors/sync-rest.processor';
 import { RedisService } from './shared/services/redis.service';
 import { CommonService } from './shared/services/common.service';
+import { TransactionHistoryRepository } from './repositories/impls/tx-history.repository';
 const entities = [
     ENTITIES_CONFIG.AURA_TX,
     ENTITIES_CONFIG.SAFE,
@@ -47,7 +48,7 @@ const processors = [SyncRestProcessor];
         BullModule.forRoot({
             redis: {
                 host: process.env.REDIS_HOST,
-                port: process.env.REDIS_PORT,
+                port: Number(process.env.REDIS_PORT),
                 username: process.env.REDIS_USERNAME,
                 db: parseInt(process.env.REDIS_DB, 10),
             },
@@ -94,6 +95,10 @@ const processors = [SyncRestProcessor];
         {
             provide: REPOSITORY_INTERFACE.IMESSAGE_REPOSITORY,
             useClass: MessageRepository,
+        },
+        {
+            provide: REPOSITORY_INTERFACE.ITX_HISTORY_REPOSITORY,
+            useClass: TransactionHistoryRepository,
         },
         // processors
         ...processors,
