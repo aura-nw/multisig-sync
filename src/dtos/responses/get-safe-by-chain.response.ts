@@ -1,4 +1,4 @@
 export class SafeInfo {
-    safeAddress: string;
-    id: number
+  safeAddress: string;
+  id: number;
 }

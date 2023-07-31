@@ -6,33 +6,33 @@ import { ENTITIES_CONFIG } from '../../module.config';
 import { IMessageRepository } from '../imessage.repository';
 @Injectable()
 export class MessageRepository
-    extends BaseRepository
-    implements IMessageRepository
+  extends BaseRepository
+  implements IMessageRepository
 {
-    private readonly _logger = new Logger(MessageRepository.name);
-    constructor(
-        @InjectRepository(ENTITIES_CONFIG.MESSAGE)
-        private readonly repos: Repository<ObjectLiteral>,
-    ) {
-        super(repos);
-    }
+  private readonly _logger = new Logger(MessageRepository.name);
+  constructor(
+    @InjectRepository(ENTITIES_CONFIG.MESSAGE)
+    private readonly repos: Repository<ObjectLiteral>,
+  ) {
+    super(repos);
+  }
 
-    async insertBulkMessage(listTxMessages: any[]) {
-        listTxMessages = listTxMessages.filter(
-            (txMessage) => txMessage.auraTxId !== 0,
-        );
-        console.log(listTxMessages);
-        if (listTxMessages.length <= 0) return;
-        let query = `INSERT IGNORE INTO Message(CreatedAt, UpdatedAt, Id, TxId, AuraTxId, TypeUrl, FromAddress, ToAddress, Amount, Denom, DelegatorAddress, ValidatorAddress, ValidatorSrcAddress, ValidatorDstAddress) VALUES`;
-        listTxMessages.map((tm) => {
-            query += ` (DEFAULT, DEFAULT, DEFAULT, ${null}, ${tm.auraTxId}, '${
-                tm.typeUrl
-            }', '${tm.fromAddress}', '${tm.toAddress}', ${tm.amount}, '${
-                tm.denom
-            }', ${null}, ${null}, ${null}, ${null}),`;
-        });
-        // console.log(query);
-        query = query.substring(0, query.length - 1) + ';';
-        return await this.repos.query(query);
-    }
+  async insertBulkMessage(listTxMessages: any[]) {
+    listTxMessages = listTxMessages.filter(
+      (txMessage) => txMessage.auraTxId !== 0,
+    );
+    console.log(listTxMessages);
+    if (listTxMessages.length <= 0) return;
+    let query = `INSERT IGNORE INTO Message(CreatedAt, UpdatedAt, Id, TxId, AuraTxId, TypeUrl, FromAddress, ToAddress, Amount, Denom, DelegatorAddress, ValidatorAddress, ValidatorSrcAddress, ValidatorDstAddress) VALUES`;
+    listTxMessages.map((tm) => {
+      query += ` (DEFAULT, DEFAULT, DEFAULT, ${null}, ${tm.auraTxId}, '${
+        tm.typeUrl
+      }', '${tm.fromAddress}', '${tm.toAddress}', ${tm.amount}, '${
+        tm.denom
+      }', ${null}, ${null}, ${null}, ${null}),`;
+    });
+    // console.log(query);
+    query = query.substring(0, query.length - 1) + ';';
+    return await this.repos.query(query);
+  }
 }
