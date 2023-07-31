@@ -1,4 +1,2 @@
-import { ResponseDto } from 'src/dtos/responses/response.dto';
-import { MODULE_REQUEST } from 'src/module.config';
-
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface ISyncWebsocketService {}

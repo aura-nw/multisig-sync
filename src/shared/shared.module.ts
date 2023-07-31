@@ -5,8 +5,8 @@ const providers = [ConfigService];
 
 @Global()
 @Module({
-    imports: [],
-    providers: [...providers],
-    exports: [...providers],
+  imports: [],
+  providers: [...providers],
+  exports: [...providers],
 })
 export class SharedModule {}
