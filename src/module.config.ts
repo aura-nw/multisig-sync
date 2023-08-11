@@ -15,7 +15,6 @@ export const ENTITIES_CONFIG = {
 };
 
 export const SERVICE_INTERFACE = {
-  ISYNC_WEBSOCKET_SERVICE: 'ISyncWebsocketService',
   ISYNC_REST_SERVICE: 'ISyncRestService',
 };
 
