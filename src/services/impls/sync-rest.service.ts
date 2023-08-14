@@ -59,13 +59,14 @@ export class SyncRestService implements ISyncRestService {
     this.findTxByHash();
   }
 
-  //   @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_30_SECONDS)
   async findTxByHash() {
     try {
       const listPendingTx =
         await this.multisigTransactionRepository.findPendingMultisigTransaction(
           this.chain.id,
         );
+      if (listPendingTx.length === 0) return;
       const result = await this.commonService.queryGraphql(
         this.horoscopeApi,
         `query pendingTxs($hashes: [String!] = "") {
@@ -81,17 +82,17 @@ export class SyncRestService implements ISyncRestService {
         },
       );
 
-      const txs = result.data[this.graphqlPrefix].transaction
-        .filter((res) => res.length > 0)
-        .map((tx) => {
-          return {
-            code: parseInt(tx.tx_response.code, 10),
-            txHash: tx.tx_response.txhash,
-          };
-        });
+      const listTx = [];
+      const txs = result.data[this.graphqlPrefix].transaction.map((tx) => {
+        listTx.push(tx.data);
+        return {
+          code: parseInt(tx.data.tx_response.code, 10),
+          txHash: tx.data.tx_response.txhash,
+        };
+      });
       if (txs.length > 0) {
-        // const safes = _.keyBy(this.listSafe, 'safeAddress');
-        // await this.commonService.handleTransactions(listTx, safes, this.chain);
+        const safes = _.keyBy(this.listSafe, 'safeAddress');
+        await this.commonService.handleTransactions(listTx, safes, this.chain);
         await this.updateMultisigTxStatus(txs);
       }
     } catch (error) {
@@ -99,7 +100,7 @@ export class SyncRestService implements ISyncRestService {
     }
   }
 
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_5_SECONDS)
   async syncRest() {
     [this.chain, this.redisClient] = await Promise.all([
       this.chainRepository.findChainByChainId(this.listChainIdSubscriber[0]),
@@ -127,21 +128,23 @@ export class SyncRestService implements ISyncRestService {
       //     this.horoscopeApi + `block?chainid=${network.chainId}&pageLimit=1`,
       //   );
       //   const height = requestResult.data.data.blocks[0].block.header.height;
-      const height = (
-        await this.commonService.queryGraphql(
-          this.horoscopeApi,
-          `query latestBlock {
-            ${this.graphqlPrefix} {
-              block_checkpoint(where: {job_name: {_eq: "crawl:block"}}) {
-                job_name
-                height
-              }
+
+      const queryResult = await this.commonService.queryGraphql(
+        this.horoscopeApi,
+        `query latestBlock {
+          ${this.graphqlPrefix} {
+            block_checkpoint(where: {job_name: {_eq: "crawl:block"}}) {
+              job_name
+              height
             }
-          }`,
-          'latestBlock',
-          {},
-        )
-      ).data[this.graphqlPrefix].block_checkpoint.height;
+          }
+        }`,
+        'latestBlock',
+        {},
+      );
+
+      const height =
+        queryResult.data[this.graphqlPrefix].block_checkpoint[0].height;
 
       // Get the last block height from cache (if exists) minus 2 blocks
       let cacheLastHeight = await this.redisClient.get(this.cacheKey);
