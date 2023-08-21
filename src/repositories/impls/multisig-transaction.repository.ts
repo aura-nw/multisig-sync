@@ -54,7 +54,7 @@ export class MultisigTransactionRepository
     const successTxAddrs = [];
     const failTxAddrs = [];
     auraTxs.forEach((auraTx) => {
-      auraTx.code === '0'
+      String(auraTx.code) === '0'
         ? successTxAddrs.push(auraTx.txHash)
         : failTxAddrs.push(auraTx.txHash);
     });
