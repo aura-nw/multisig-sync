@@ -2,6 +2,7 @@
 import { Inject, Logger } from '@nestjs/common';
 import { uniq } from 'lodash';
 import { Input, Output } from 'cosmjs-types/cosmos/bank/v1beta1/bank';
+import axios from 'axios';
 import { ITransactionHistoryRepository } from 'src/repositories/itx-history.repository';
 
 import { CONST_CHAR, MESSAGE_ACTION } from '../../common';
@@ -42,6 +43,20 @@ export class CommonService {
     @Inject(REPOSITORY_INTERFACE.ITX_HISTORY_REPOSITORY)
     private txHistoryRepository: ITransactionHistoryRepository,
   ) {}
+
+  async queryGraphql(
+    url: string,
+    query: string,
+    operationName: string,
+    variables: any,
+  ) {
+    const response = await axios.post(url, {
+      query,
+      variables,
+      operationName,
+    });
+    return response.data;
+  }
 
   async handleTransactions(listTx, safes, chain) {
     // const safeAddresses = Object.keys(safes);

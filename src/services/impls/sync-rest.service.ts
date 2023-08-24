@@ -1,6 +1,5 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-var-requires */
-import * as axios from 'axios';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ISyncRestService } from '../ISyncRestService';
@@ -29,6 +28,7 @@ export class SyncRestService implements ISyncRestService {
   private cacheKey;
   private horoscopeApi;
   private redisClient;
+  private graphqlPrefix;
 
   constructor(
     private configService: ConfigService,
@@ -54,6 +54,7 @@ export class SyncRestService implements ISyncRestService {
     );
     this.horoscopeApi = this.configService.get('HOROSCOPE_API');
     this.cacheKey = this.configService.get('LAST_BLOCK_HEIGHT');
+    this.graphqlPrefix = this.configService.get('GRAPHQL_PREFIX');
     this.syncRest();
     this.findTxByHash();
   }
@@ -65,25 +66,30 @@ export class SyncRestService implements ISyncRestService {
         await this.multisigTransactionRepository.findPendingMultisigTransaction(
           this.chain.id,
         );
-      const result = await Promise.all(
-        listPendingTx.map((tx) =>
-          axios.default.get(
-            this.horoscopeApi +
-              `transaction?chainid=${this.chain.chainId}&txHash=${tx.txHash}&pageLimit=100`,
-          ),
-        ),
+      if (listPendingTx.length === 0) return;
+      const result = await this.commonService.queryGraphql(
+        this.horoscopeApi,
+        `query pendingTxs($hashes: [String!] = "") {
+                ${this.graphqlPrefix} {
+                  transaction(where: {hash: {_in: $hashes}}) {
+                    data
+                  }
+                }
+              }`,
+        'pendingTxs',
+        {
+          hashes: listPendingTx.map((tx) => tx.txHash),
+        },
       );
 
       const listTx = [];
-      const txs = result
-        .filter((res) => res.data.data.transactions.length > 0)
-        .map((tx) => {
-          listTx.push(...tx.data.data.transactions);
-          return {
-            code: parseInt(tx.data.data.transactions[0].tx_response.code, 10),
-            txHash: tx.data.data.transactions[0].tx_response.txhash,
-          };
-        });
+      const txs = result.data[this.graphqlPrefix].transaction.map((tx) => {
+        listTx.push(tx.data);
+        return {
+          code: parseInt(tx.data.tx_response.code, 10),
+          txHash: tx.data.tx_response.txhash,
+        };
+      });
       if (txs.length > 0) {
         const safes = _.keyBy(this.listSafe, 'safeAddress');
         await this.commonService.handleTransactions(listTx, safes, this.chain);
@@ -117,11 +123,28 @@ export class SyncRestService implements ISyncRestService {
   async syncFromNetwork(network, listSafes: SafeInfo[]) {
     try {
       const safeAddresses = _.keyBy(listSafes, 'safeAddress');
-      // Get the current latest block height on network
-      const requestResult = await axios.default.get(
-        this.horoscopeApi + `block?chainid=${network.chainId}&pageLimit=1`,
+      //   // Get the current latest block height on network
+      //   const requestResult = await axios.default.get(
+      //     this.horoscopeApi + `block?chainid=${network.chainId}&pageLimit=1`,
+      //   );
+      //   const height = requestResult.data.data.blocks[0].block.header.height;
+
+      const queryResult = await this.commonService.queryGraphql(
+        this.horoscopeApi,
+        `query latestBlock {
+          ${this.graphqlPrefix} {
+            block_checkpoint(where: {job_name: {_eq: "crawl:block"}}) {
+              job_name
+              height
+            }
+          }
+        }`,
+        'latestBlock',
+        {},
       );
-      const height = requestResult.data.data.blocks[0].block.header.height;
+
+      const height =
+        queryResult.data[this.graphqlPrefix].block_checkpoint[0].height;
 
       // Get the last block height from cache (if exists) minus 2 blocks
       let cacheLastHeight = await this.redisClient.get(this.cacheKey);
