@@ -92,6 +92,7 @@ export class SyncRestService implements ISyncRestService, OnModuleInit {
           hashes: listPendingTx.map((tx) => tx.txHash),
         },
       );
+      this._logger.debug(`query horoscope result: ${JSON.stringify(result)}`);
 
       const listTx = [];
       const txs = result.data[this.graphqlPrefix].transaction.map((tx) => {
@@ -101,6 +102,8 @@ export class SyncRestService implements ISyncRestService, OnModuleInit {
           txHash: tx.data.tx_response.txhash,
         };
       });
+      this._logger.debug(`pending tx data: ${JSON.stringify(txs)}`);
+
       if (txs.length > 0) {
         const safes = _.keyBy(this.listSafe, 'safeAddress');
         await this.commonService.handleTransactions(listTx, safes, this.chain);
