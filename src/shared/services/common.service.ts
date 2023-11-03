@@ -42,7 +42,7 @@ export class CommonService {
     private messageRepository: IMessageRepository,
     @Inject(REPOSITORY_INTERFACE.ITX_HISTORY_REPOSITORY)
     private txHistoryRepository: ITransactionHistoryRepository,
-  ) {}
+  ) { }
 
   async queryGraphql(
     url: string,
@@ -343,7 +343,7 @@ export class CommonService {
           auraTx.fee = parseInt(
             txs.tx.auth_info.fee.amount[0].amount,
             10,
-          ).toString();
+          );
           // Remove single quote
           auraTx.rawLogs = txs.tx_response.raw_log.replaceAll("'", '') || '';
           auraTx.fromAddress = this.listMessageStake.includes(

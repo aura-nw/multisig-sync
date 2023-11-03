@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/no-var-requires */
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ISyncRestService } from '../ISyncRestService';
 import { ConfigService } from '../../shared/services/config.service';
@@ -19,7 +19,7 @@ import { CommonService } from '../../shared/services/common.service';
 const _ = require('lodash');
 
 @Injectable()
-export class SyncRestService implements ISyncRestService {
+export class SyncRestService implements ISyncRestService, OnModuleInit {
   private readonly _logger = new Logger(SyncRestService.name);
   private chain;
   // private listSafeAddress;
@@ -55,10 +55,19 @@ export class SyncRestService implements ISyncRestService {
     this.horoscopeApi = this.configService.get('HOROSCOPE_API');
     this.cacheKey = this.configService.get('LAST_BLOCK_HEIGHT');
     this.graphqlPrefix = this.configService.get('GRAPHQL_PREFIX');
-    this.syncRest();
-    this.findTxByHash();
+
   }
 
+  async onModuleInit() {
+    [this.chain, this.redisClient] = await Promise.all([
+      this.chainRepository.findChainByChainId(this.listChainIdSubscriber[0]),
+      this.redisService.getRedisClient(this.redisClient),
+    ]);
+
+    await Promise.all([this.syncRest(), this.findTxByHash()]);
+  }
+
+  // find pending tx
   @Cron(CronExpression.EVERY_30_SECONDS)
   async findTxByHash() {
     try {
@@ -104,10 +113,7 @@ export class SyncRestService implements ISyncRestService {
 
   @Cron(CronExpression.EVERY_5_SECONDS)
   async syncRest() {
-    [this.chain, this.redisClient] = await Promise.all([
-      this.chainRepository.findChainByChainId(this.listChainIdSubscriber[0]),
-      this.redisService.getRedisClient(this.redisClient),
-    ]);
+
     const newSafes = await this.safeRepository.findSafeByInternalChainId(
       this.chain.id,
       this.listSafe.length > 0 ? this.listSafe[0].id : 0,

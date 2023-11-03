@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ENTITIES_CONFIG } from '../../module.config';
-import { In, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { IMultisigTransactionRepository } from '../imultisig-transaction.repository';
 import { BaseRepository } from './base.repository';
 import { AuraTx, MultisigTransaction } from '../../entities';
@@ -19,20 +19,19 @@ export class MultisigTransactionRepository
     super(repos);
   }
 
-  async findPendingMultisigTransaction(internalChainId: number): Promise<any> {
-    const status = TRANSACTION_STATUS.PENDING;
-    const query = this.repos
-      .createQueryBuilder('multisigTransaction')
-      .where('multisigTransaction.status = :status', { status })
-      .andWhere("multisigTransaction.txHash != ''")
-      .andWhere('multisigTransaction.internalChainId = :internalChainId', {
-        internalChainId,
-      })
-      .limit(10)
-      .select(['multisigTransaction.txHash as txHash']);
-    const res = await query.getRawMany();
-    this._logger.debug(res);
-    return res;
+  async findPendingMultisigTransaction(
+    internalChainId: number,
+  ): Promise<any[]> {
+    const result = await this.repos.find({
+      where: {
+        status: TRANSACTION_STATUS.PENDING,
+        txHash: Not(''),
+        internalChainId: internalChainId,
+      },
+      take: 10,
+    });
+    this._logger.debug(result);
+    return result;
   }
 
   async updateMultisigTransactionsByHashes(data: any, internalChainId: number) {

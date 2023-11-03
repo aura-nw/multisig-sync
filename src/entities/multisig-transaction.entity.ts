@@ -18,17 +18,20 @@ export class MultisigTransaction extends BaseEntityAutoId {
   @Column({ name: 'Denom' })
   denom: string;
 
+  @Column({ name: 'ContractAddress' })
+  contractAddress: string;
+
   @Column({ name: 'Status' })
   status: string;
 
   @Column({ name: 'TypeUrl' })
   typeUrl: string;
 
-  @Column({ name: 'Signature' })
-  signature: string;
-
   @Column({ name: 'InternalChainId' })
   internalChainId: number;
+
+  @Column({ name: 'RawMessages', type: 'json' })
+  rawMessages: string;
 
   @Column({ name: 'AccountNumber' })
   accountNumber: number;
@@ -42,15 +45,9 @@ export class MultisigTransaction extends BaseEntityAutoId {
   @Column({ name: 'Fee', type: 'float' })
   fee: number;
 
-  @Column({ name: 'Msg' })
-  msg: string;
-
-  @Column({ name: 'MultisigPubkey' })
-  multisigPubkey: string;
-
   @Column({ name: 'TxHash' })
   txHash: string;
 
-  @Column({ name: 'Map' })
-  map: string;
+  @Column({ name: 'Logs' })
+  logs: string;
 }
