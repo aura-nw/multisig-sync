@@ -119,7 +119,7 @@ export class CommonService {
               txMessage.toAddress = msg.delegator_address;
               txMessage.amount = null;
               auraTxAmount += parseFloat(msg.amount.amount);
-              if (txs.tx_response.logs.length > 0) {
+              if (txs.tx_response.logs?.length > 0) {
                 if (
                   txs.tx_response.logs[index].events.find(
                     (event) => event.type === CONST_CHAR.WITHDRAW_REWARDS,
@@ -144,7 +144,7 @@ export class CommonService {
               txMessage.toAddress = msg.delegator_address;
               txMessage.amount = null;
               auraTxAmount += parseFloat(msg.amount.amount);
-              if (txs.tx_response.logs.length > 0) {
+              if (txs.tx_response.logs?.length > 0) {
                 if (
                   txs.tx_response.logs[index].events.find(
                     (event) => event.type === CONST_CHAR.WITHDRAW_REWARDS,
@@ -173,7 +173,7 @@ export class CommonService {
                   txMessageDst.toAddress = msg.delegator_address;
                   txMessageDst.fromAddress = txs.tx_response.logs[
                     index
-                  ].events.find(
+                  ]?.events.find(
                     (event) => event.type === CONST_CHAR.WITHDRAW_REWARDS,
                   ).attributes[3].value;
                   txMessageDst.amount = txs.tx_response.logs[index].events
@@ -193,7 +193,7 @@ export class CommonService {
               txMessage.toAddress = msg.delegator_address;
               txMessage.amount = null;
               auraTxAmount += parseFloat(msg.amount.amount);
-              if (txs.tx_response.logs.length > 0) {
+              if (txs.tx_response.logs?.length > 0) {
                 if (
                   txs.tx_response.logs[index].events.find(
                     (event) => event.type === CONST_CHAR.WITHDRAW_REWARDS,
@@ -216,7 +216,7 @@ export class CommonService {
               txMessage.fromAddress = msg.validator_address;
               txMessage.toAddress = msg.delegator_address;
               txMessage.amount = null;
-              if (txs.tx_response.logs.length > 0) {
+              if (txs.tx_response.logs?.length > 0) {
                 if (
                   txs.tx_response.logs[index].events.find(
                     (event) => event.type === CONST_CHAR.WITHDRAW_REWARDS,
@@ -288,7 +288,7 @@ export class CommonService {
               listTxMessages.push(txMessage);
               break;
             case MESSAGE_ACTION.IBC_RECEIVE:
-              const eventLog = txs.tx_response.logs[index].events.find(
+              const eventLog = txs.tx_response.logs[index]?.events.find(
                 (e) => e.type === 'transfer',
               );
               if (eventLog) {
