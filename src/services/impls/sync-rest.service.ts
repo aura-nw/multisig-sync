@@ -67,6 +67,8 @@ export class SyncRestService implements ISyncRestService {
           this.chain.id,
         );
       if (listPendingTx.length === 0) return;
+      this._logger.debug('listPendingTx: ', JSON.stringify(listPendingTx));
+
       const result = await this.commonService.queryGraphql(
         this.horoscopeApi,
         `query pendingTxs($hashes: [String!] = "") {

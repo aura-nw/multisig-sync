@@ -10,8 +10,7 @@ import { TRANSACTION_STATUS } from '../../common';
 @Injectable()
 export class MultisigTransactionRepository
   extends BaseRepository
-  implements IMultisigTransactionRepository
-{
+  implements IMultisigTransactionRepository {
   private readonly _logger = new Logger(MultisigTransactionRepository.name);
   constructor(
     @InjectRepository(ENTITIES_CONFIG.MULTISIG_TRANSACTION)
@@ -32,6 +31,7 @@ export class MultisigTransactionRepository
       .limit(10)
       .select(['multisigTransaction.txHash as txHash']);
     const res = await query.getRawMany();
+    this._logger.debug(res);
     return res;
   }
 
